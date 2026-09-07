@@ -1,174 +1,200 @@
-# Worktop ▲
+<div align="center">
+  <img src="desktop/icon.svg" width="104" height="104" alt="Worktop 图标" />
+  <h1>Worktop</h1>
+  <p><strong>你的 AI，与你的电脑一起工作。</strong></p>
+  <p>对话 · 文件 · 终端 · 浏览器 · 应用 · 小组件</p>
+  <p>A personal AI desktop for everyday work.</p>
+  <p>
+    <a href="#开始使用">开始使用</a> ·
+    <a href="#开发与构建">开发与构建</a> ·
+    <a href="https://github.com/yanglongyun/Worktop/issues">反馈与建议</a> ·
+    <a href="LICENSE">MIT License</a>
+  </p>
+</div>
 
-> 一个本地工作台:左边是**对话**、**文件**、**网站**,中间是标签页,侧栏挂着你自己的**组件**。
+---
 
-## 它是什么
+Worktop 是一个个人 AI 工作台。你可以和 AI 讨论想法，也可以让它读写文件、执行命令、操作网页，或为自己制作一个应用和小组件。
 
-一套 VSCode 式的本地 GUI,把日常工作需要的几样东西合到一处:
+对话、文件、终端、网页和应用在同一个窗口中打开，通过**标签页与左右分屏**并排查看。文件保存在你的电脑上，AI 生成的成果可以直接打开、编辑和继续使用。
 
-- **对话** —— 与个人 AI 助手交流,按任务需要跑命令、读写本地文件、操作网页;
-- **文件** —— 手动添加的常用文件夹,可浏览、编辑、预览;与对话独立;
-- **网站** —— 内置真浏览器(带你的登录态),收藏的站点一点就开;
-- **组件** —— 零构建的小工具,写个目录就装上了,大多由 AI 替你造。
+## 在一个窗口里，完成一件事
 
-## 对话与文件独立
+| 能力 | 你可以做什么 |
+| --- | --- |
+| **与 AI 协作** | 流式对话，查看思考与工具执行过程；长对话自动压缩上下文，保留交接摘要 |
+| **处理本地文件** | 浏览常用文件夹、编辑代码，预览 Markdown、HTML、图片和 PDF |
+| **使用浏览器** | 打开收藏的网站，在保留登录态的内置浏览器中让 AI 阅读和操作页面 |
+| **运行终端** | 使用交互式终端，让 AI 执行命令；通过 Git 面板查看仓库变化 |
+| **扩展应用** | 安装本地应用，让 AI 通过应用提供的接口处理任务 |
+| **制作小组件** | 把记账、打卡、数据查看等需求做成自己的侧栏工具 |
 
-对话、消息和压缩摘要保存在 SQLite,创建对话不创建文件夹。
-命令默认从用户主目录 `~` 开始,每次 `bash` 可用 `cwd` 指定执行位置。
-文件工具支持绝对路径与 `~/`,无需先将文件夹加入文件面板。
+从一句话开始：
 
-用户指定保存位置时使用该位置;未指定的新产物可放在 `~/worktop/outputs/<对话ID>/`,
-需要写入文件时才创建目录。应用发起的任务可通过 `cwd` 指定本轮目录,默认在应用目录执行。
-项目约定与技能在实际操作项目时按需读取,不会因文件面板选择而自动注入。
+> “读一下这份项目代码，告诉我它是怎么组织的。”
+>
+> “把这些资料整理成一份能打开查看的 HTML 报告。”
+>
+> “给我做一个喝水打卡的小组件。”
 
-## 它如何存储:文件系统即真相
+## 从对话开始，自然使用电脑
 
-用户的资产在文件系统里,SQLite 只存过程:
+**不用先选一个工作区。** 新建对话打开空白起始页，发送第一条消息时才创建对话记录。文件面板只是常用目录的入口，浏览哪个文件夹不会绑定对话。
 
-```
-<常用文件夹>/                     ← 你手动添加的文件夹,可以多个,会记住;默认一个都没有
-  研究/
-    notes.md                   ← 真实文件
-    src/ app.js                ← AI 用 bash 建的嵌套结构
-~/.worktop/                  ← 产品自己的家:应用、组件、它们的数据
-```
+**按任务找到文件。** 文件工具支持绝对路径与 `~/`；终端默认从用户主目录启动，执行命令时可以指定目录。你指定的保存位置优先，未指定的新文件可放在 `~/worktop/outputs/<对话ID>/`，需要写入时才创建目录。
 
-| 表 | 内容 |
-|---|---|
-| `chats` | 对话(标题 / 人格 / 已读位置) |
-| `messages` | 每个对话的消息流,一行一个 Responses item |
-| `compactions` | 上下文压缩的摘要与水位 |
-| `tasks` | 应用发起的 AI 任务与状态 |
-| `settings` | 模型 / key / 默认 system prompt |
-| `settings_rules` | 全局规则与顺序 |
-| `file_roots` | 文件浏览入口(手动添加的文件夹) |
-| `browser_bookmarks` | 「网站」面板的收藏 |
-| `browser_history` | 浏览历史 |
-| `browser_passwords` | 网站账号与加密密码 |
+**把能力交给 AI，把偏好留给自己。** 在设置中配置模型、助手指令、压缩提示词与操作规则。启用的技能按需读取，应用和小组件可以继续扩展工作台的能力。
 
-用户对话的运行状态保存在内存，消息过程逐条记在 `messages` 中；应用任务的终局另存于 `tasks`。
+> **运行边界**：Worktop 仍在开发中。命令与文件工具直接作用于本机，没有沙箱隔离；操作规则用于约束助手行为，不替代系统级隔离。模型请求发送到你配置的服务，请按任务需要选择模型与授权范围。
 
-## AI 手里的工具(5 个)
+## 开始使用
 
-一个不多。能用通用能力表达的,就不单开一个工具:
-
-| 工具 | 用途 |
-|---|---|
-| `bash` | 在本机执行命令,默认从 `~` 开始,`cwd` 可指定本次目录。`background: true` 转后台(dev server / watch),立即返回进程 id、pid、日志路径;忘了写也会被自动识别 |
-| `read` · `edit` · `write` | 带行号读(可分页,也能读图)/ 精确替换 / 新建或整体重写 |
-| `browser` | 操作网页标签(内置真浏览器,真实登录态):开 / 跳转 / 读正文 / 执行 JS / 点击 / 填字 / 截图 |
-
-> ⚠️ `bash` 在**你本机**执行任意命令、**无沙箱**。只在你信任的机器、对你信任的模型使用。
-
-## 组件
-
-组件 = 组件的家里的一个目录,**零构建**(ESM + 原生 CSS,浏览器直接吃),写出目录即安装:
-
-```
-~/.worktop/widgets/<id>/
-  widget.json   manifest(名字 / 图标 / 权限)
-  index.html    入口
-  main.js  style.css
-  data.db       组件自己的 SQLite,和代码做邻居
-```
-
-每个组件跑在**自己的 origin** 上(一个 loopback 端口),宿主 API 是同源 HTTP
-(`fetch("/widgets/sql")`),不需要任何 SDK;默认被 CSP 断网,权限在 manifest 里明文声明。
-
-完整契约是一条出厂技能:`~/.worktop/skills/widget/SKILL.md`(源在 `resources/skills/widget/`)。AI 造组件时自己读它,你也可以改它。
-
-## HTTP 接口分工
-
-| 前缀 | 调用方 | 服务位置 |
-|---|---|---|
-| `/api/*` | Worktop 主界面:对话、文件、设置、应用和组件管理 | 主服务端口 |
-| `/apps/*` | 应用调用宿主:身份、模型补全、Agent 任务、通知 | `HOST_URL`，使用 `APP_TOKEN` 与 manifest 权限 |
-| `/widgets/*` | 小组件调用宿主:身份、SQL、模型、网络代理、界面交互 | 组件自己的端口，同源调用，由宿主识别组件 |
-
-`/api/apps`、`/api/widgets` 是管理接口，分别区别于 `/apps/*`、`/widgets/*` 的宿主能力。
-组件目录中的 `/widgets/*` 路径由宿主保留。应用自己的业务 API 在应用自己的端口上，自行定义。
-主界面 API 按 `chats`、`files`、`browser`、`apps`、`widgets`、`skills`、`settings`、`system`、`git` 分组。常用目录在 `/api/files/roots`，全局规则在 `/api/settings/rules`。固定路由段用小写单词和 `/` 层级。
-
-主界面的双向通道是 `/api/ws`，健康检查是 `/health`。
-
-## 用起来什么感觉
-
-- **流式输出**,思考与正文逐字实时呈现;完成的一轮收纳成「已工作 X 秒」折叠条
-- 模型协议是 **Responses**,不随供应商变 —— 接任何 Responses 兼容接口 / 网关
-- **多标签 + 左右分屏**;代码按扩展名高亮(CodeMirror);Markdown / HTML / 图片 / PDF 直接预览
-- **⌘P 快速打开 · ⌘⇧P 命令面板**
-- 对话运行时亮**蓝点**、有未读亮**绿点**
-- 内置**终端**(默认从主目录启动,也可在指定文件夹里运行命令)与一个 **Git 面板**
-
-## 跑起来
+从源码启动桌面应用。需要 Git、npm，以及支持内置 `node:sqlite` 的 Node.js，建议使用 Node.js 22.13 或更新版本。
 
 ```bash
-git clone https://github.com/yanglongyun/Worktop
+git clone https://github.com/yanglongyun/Worktop.git
 cd Worktop
 npm install
-
-# 开发(两个进程)
-npm run dev          # 后端,tsx watch,端口 9506
-npm run ui           # 前端,vite dev,端口 5174(代理到 9506)
-
-# 生产(构建 GUI,单端口运行)
-npm run build
-npm start            # http://localhost:9506
-
-# 桌面客户端(Electron 壳)
 npm run app
-
-# 打成 macOS 应用
-npm run dist:mac
 ```
 
-开发模式打开 **http://localhost:5174/**:
+启动后：
 
-1. 左下角 ⚙ Settings → 填 API URL / API Key / Model(任何 Responses 兼容接口)
-2. 「会话」面板 `＋` → 打开空白起始页，首次发送时才创建对话
-3. 发条消息试试 —— 让它「做个喝水打卡的组件」,看它写出目录,然后在侧栏「小组件」里点开
+1. 在左下角打开**设置 → 模型**，填写 API URL、API Key 和 Model。接口需要兼容 **Responses API**。
+2. 查看**助手指令**和**规则**，按自己的使用习惯调整。
+3. 点击**新建对话**，描述你想完成的事情；也可以添加文件作为上下文。
+
+完整的内置浏览器操作依赖 Electron 桌面环境。前端开发页面用于调试界面，不能替代全部桌面能力。
+
+## 开发与构建
+
+开发时，在两个终端中分别启动后端与前端：
+
+```bash
+# 终端 1：后端，默认端口 9506
+npm run dev
+
+# 终端 2：前端，默认端口 5174
+npm run ui
+```
+
+打开 <http://127.0.0.1:5174>。前端会将 API 和 WebSocket 请求代理到后端。
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run app` | 构建前后端并启动 Electron |
+| `npm run build` | 构建前端静态资源 |
+| `npm run build:server` | 打包后端服务 |
+| `npm run typecheck` | 检查 TypeScript 类型 |
+| `npm run test:routes` | 验证主界面、应用与小组件接口 |
+| `npm run app:mac` | 生成 macOS 应用目录 |
+| `npm run dist:mac` | 构建 macOS 分发包 |
+| `npm run app:win` | 生成 Windows 应用目录 |
+| `npm run dist:win` | 构建 Windows 安装包 |
+
+桌面打包请在对应系统上执行；构建脚本会复制当前 Node.js 运行时。macOS 分发配置包含签名设置，发布时需使用自己的签名与公证凭据。
+
+<details>
+<summary><strong>只运行本地 Web 服务</strong></summary>
+
+```bash
+npm run build
+npm start
+```
+
+默认访问 <http://127.0.0.1:9506>。服务端端口可通过 `WORKTOP_PORT` 配置。
+
+</details>
+
+## 为自己扩展工作台
+
+**应用**是带界面的本地网站，可以提供 HTTP API，让 AI 直接使用它的能力。宿主负责启动应用，并提供受权限约束的模型调用、任务与通知等接口。
+
+**小组件**是侧栏里的轻量工具，使用 HTML、JavaScript 和 CSS，无需构建即可加载。每个组件拥有独立的本地来源，可以通过宿主接口使用 SQLite、模型和网络能力。
+
+**技能**描述如何完成某类任务。AI 在需要时读取 `SKILL.md`，设置中的技能列表也可以直接打开说明文档。
+
+制作小组件的完整约定见仓库内的 [widget 技能](resources/skills/widget/SKILL.md)。
+
+<details>
+<summary><strong>本地文件与数据目录</strong></summary>
+
+用户文件保留在实际保存位置。SQLite 保存对话、消息、压缩记录、设置、收藏等结构化数据；应用和组件可以拥有自己的数据。
+
+```text
+~/.worktop/
+├── apps/                  本地应用
+│   └── .data/             应用数据
+├── widgets/               侧栏小组件
+└── skills/                技能说明
+
+~/worktop/outputs/          未指定位置时的对话产物
+```
+
+macOS 桌面应用的宿主数据位于 `~/Library/Application Support/worktop/`。源码启动的服务默认使用 `~/Library/Application Support/Worktop Dev/`，可通过 `WORKTOP_HOME` 指定。
+
+应用、组件和技能的根目录可通过 `WORKTOP_PRODUCT_HOME` 指定；默认仍为 `~/.worktop/`，不会随宿主数据目录自动切换。
+
+</details>
+
+<details>
+<summary><strong>接口分工</strong></summary>
+
+| 前缀 | 调用方 | 作用 |
+| --- | --- | --- |
+| `/api/*` | Worktop 主界面 | 管理对话、文件、浏览器、设置、应用与组件 |
+| `/apps/*` | 应用 | 通过 `HOST_URL`、`APP_TOKEN` 与声明的权限访问宿主能力 |
+| `/widgets/*` | 小组件 | 在组件自己的来源下访问同源宿主接口 |
+
+主界面 API 按 `chats`、`files`、`browser`、`apps`、`widgets`、`skills`、`settings`、`system`、`git` 分组。WebSocket 为 `/api/ws`，健康检查为 `/health`。
+
+应用自身的业务接口由应用定义，与宿主管理接口分开。
+
+</details>
+
+<details>
+<summary><strong>源码结构</strong></summary>
+
+```text
+desktop/                   Electron 桌面壳与浏览器集成
+ui/src/
+├── api/                   按业务划分的请求与类型
+└── components/            活动栏、侧栏、标签页、分屏与功能界面
+server/
+├── agent/                 模型与工具循环、上下文压缩、工具实现
+├── ai/                    模型协议、请求、读流与重试
+├── chats/                 对话、消息、轮次、提示词与确认
+├── database/              SQLite 连接、表与索引
+├── http/                  HTTP API、WebSocket 与静态资源
+├── files/                 文件树、常用目录、附件与监听
+├── browser/               浏览器宿主、收藏、历史与密码
+├── apps/                  应用注册、进程、宿主能力与任务
+├── widgets/               组件注册、站点与宿主能力
+├── skills/                技能注册与文档解析
+├── settings/              设置、默认提示词与规则
+├── terminals/             交互式终端与后台命令
+├── git/                   Git 操作
+├── system/                运行路径与系统集成
+└── shared/                前后端共用事件契约
+resources/                 内置应用、技能等资源
+```
+
+Agent 循环接收组装好的模型输入和工具，不依赖对话存储。对话层负责持久化消息、恢复上下文和向界面广播事件；HTTP 层按业务调用对应模块。
+
+</details>
 
 ## 技术栈
 
-Node 22+ · TypeScript · `node:sqlite`(内置,零外部数据库依赖)· React 19 · Tailwind 4 ·
-Vite · CodeMirror 6 · @dnd-kit · ws · Electron
+**Electron · React · TypeScript · Node.js · SQLite**
 
-## 想读代码——架构
+界面使用 Tailwind CSS 与 Vite，代码编辑使用 CodeMirror，终端使用 xterm.js 与 node-pty。SQLite 由 Node.js 内置模块提供，无需部署外部数据库服务。
 
-按领域分目录，HTTP 层调用业务模块；通用连接、路径和默认值各自有明确归属。
+## 参与与反馈
 
-```
-server/
-├── index.ts      启动装配
-├── database/     connection.ts 连接；schema.ts 当前表与索引
-├── settings/     store.ts 设置；defaults.ts 默认值；rules.ts 规则；seed.ts 新库播种
-├── system/       paths.ts 运行路径；directoryPicker.ts 原生选择器
-├── ai/           模型协议、请求、读流、重试与补全
-├── agent/        模型与工具循环、压缩与工具实现
-├── http/         按业务分组的 API、WebSocket、静态资源与来源校验
-├── chats/        对话存取、轮次、消息、压缩、提示词、模型输入与确认
-├── files/        文件树、常用目录、附件与监听
-├── git/          Git 仓库操作
-├── browser/      浏览器宿主、收藏、历史、密码与图标
-├── apps/         应用注册、进程、宿主能力与任务
-├── widgets/      组件注册、站点、数据库、模型与网络
-├── skills/       技能注册与文档解析
-├── terminals/    交互式终端与后台命令
-└── shared/       前后端共用事件契约
-desktop/          Electron 桌面壳
-ui/src/api/       按同名业务模块划分请求与类型
-ui/src/components/   侧栏、标签页、对话、文件、设置与组件
-```
+欢迎通过 [Issues](https://github.com/yanglongyun/Worktop/issues) 提交问题和建议。报告问题时，请附上系统版本、复现步骤和相关日志，并移除 API Key 等敏感信息。
 
-`server/agent/` 不知道对话是什么,只接收组装好的 items、工具表和 run(call) 跑循环;压缩在循环里每次请求前判断。消息**逐条落库**:
-每个 item(思考 / 正文 / 工具调用 / 结果)完成即入库,中途停止只丢正在流式的半句。
-
-## 几句实话
-
-- `bash` 全功能、**无沙箱**,只在你信任的机器、对你信任的模型使用。
-- 提示词与注释**均为中文**,不习惯的话需要适应。
-- 它是实验性的,不面向生产。
+提交代码前，请运行与改动相关的检查。涉及交互调整时，附上截图或简短操作说明，便于理解变化。
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 realuckyang
