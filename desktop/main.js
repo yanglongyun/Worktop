@@ -332,6 +332,8 @@ const createWindow = (port) => {
     height: 900,
     minWidth: 900,
     minHeight: 600,
+    // Windows / Linux:顶部那条菜单栏是 macOS 的惯例,这里藏掉;快捷键仍由应用菜单接住,按 Alt 临时显示
+    autoHideMenuBar: process.platform !== "darwin",
     // 跟系统深浅给窗口底色,避免深色用户开屏闪白(页面内联脚本随后定妆)
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#191919" : "#ffffff",
     title: APP_NAME,
@@ -345,6 +347,7 @@ const createWindow = (port) => {
       additionalArguments: [`--webview-preload=file://${join(ROOT, "desktop/webviewPreload.cjs")}`],
     },
   });
+  if (process.platform !== "darwin") win.setMenuBarVisibility(false);
   hostContents = win.webContents; // 立刻认领:导航护栏靠它区分宿主与我们开的弹窗
   // 更新在窗口加载前就绪(或刷新)时,补发一次「已就绪」给界面
   win.webContents.on("did-finish-load", () => {
