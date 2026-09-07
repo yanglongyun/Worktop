@@ -22,7 +22,6 @@ export function PersistentPanelLayer({
   onUpdateWebTab,
   onCloseTab,
   onFocusGroup,
-  onOpenUrl,
 }: {
   /** 布局容器(position:relative):矩形以它为基准,面板也挂在它下面。 */
   containerRef: RefObject<HTMLDivElement | null>;
@@ -33,7 +32,6 @@ export function PersistentPanelLayer({
   onUpdateWebTab: (id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => void;
   onCloseTab: (groupId: WorkspaceGroupId, id: string) => void;
   onFocusGroup: (groupId: WorkspaceGroupId) => void;
-  onOpenUrl: (url: string, title?: string) => void;
 }) {
   const [hostRects, setHostRects] = useState<Record<string, HostRect>>({});
 

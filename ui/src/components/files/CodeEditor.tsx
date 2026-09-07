@@ -83,17 +83,14 @@ export function CodeEditor({
   filename,
   onChange,
   onSave,
-  gotoLine,
 }: {
   docKey: string;          // 文件标识,变了就重建编辑器(切文件)
   initialValue: string;
   filename: string;
   onChange: (value: string) => void;
   onSave?: () => void;
-  gotoLine?: number;       // 跳转到指定行(全局搜索点击命中时)
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   onChangeRef.current = onChange;
@@ -131,20 +128,9 @@ export function CodeEditor({
       ],
     });
     const view = new EditorView({ state, parent: hostRef.current });
-    viewRef.current = view;
-    return () => { view.destroy(); viewRef.current = null; };
+    return () => { view.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docKey, theme]);
-
-  // 跳转到指定行(搜索命中)
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view || !gotoLine) return;
-    const ln = Math.min(Math.max(1, gotoLine), view.state.doc.lines);
-    const pos = view.state.doc.line(ln).from;
-    view.dispatch({ selection: { anchor: pos, head: pos }, scrollIntoView: true });
-    view.focus();
-  }, [gotoLine, docKey]);
 
   return <div ref={hostRef} className="h-full w-full overflow-hidden" />;
 }

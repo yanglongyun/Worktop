@@ -49,7 +49,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
   // 如果 src 也跟着变,React 一改属性 webview 就再导航一次 —— 页面每跳一步我们就把它推回去一步,
   // 单页应用(阿里云控制台 / → /home/dashboard)会在两个地址之间无限来回。导航只走 loadURL / reload。
   const initialUrl = useRef(tab.url);
-  const [editing, setEditing] = useState(false);
+  const editing = useRef(false);
   const [loading, setLoading] = useState(false);
   const [starred, setStarred] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -100,7 +100,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
     };
     const onNavigate = (e: any) => {
       if (!e.url) return;
-      setEditing((editing) => { if (!editing) setAddress(displayUrl(e.url)); return editing; });
+      if (!editing.current) setAddress(displayUrl(e.url));
       onUpdate(tab.id, { url: e.url });
       if (wcIdRef.current != null) socket.send({ type: "web_tab_update", wcId: wcIdRef.current, url: e.url });
     };
@@ -146,7 +146,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
     // 地址栏的老规矩:像网址就开,不像就交给设置里选的搜索引擎
     const url = target ? normalizeUrl(target) : toNavigableUrl(address);
     if (!url) return;
-    setEditing(false);
+    editing.current = false;
     (viewRef.current as any)?.loadURL?.(url);
   };
 
@@ -271,15 +271,15 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
           onChange={(e) => setAddress(e.target.value)}
           onFocus={(e) => {
             // 编辑态换完整 URL(要精确就给全文),值换完再全选
-            setEditing(true);
+            editing.current = true;
             setAddress(tab.url);
             const el = e.target as HTMLInputElement;
             requestAnimationFrame(() => el.select());
           }}
-          onBlur={() => { setEditing(false); setAddress(displayUrl(tab.url)); }}
+          onBlur={() => { editing.current = false; setAddress(displayUrl(tab.url)); }}
           onKeyDown={(e) => {
             if (e.key === "Enter") { go(); (e.target as HTMLInputElement).blur(); }
-            if (e.key === "Escape") { setEditing(false); setAddress(displayUrl(tab.url)); (e.target as HTMLInputElement).blur(); }
+            if (e.key === "Escape") { editing.current = false; setAddress(displayUrl(tab.url)); (e.target as HTMLInputElement).blur(); }
           }}
           spellCheck={false}
           className="flex-1 min-w-0 h-7 px-2.5 rounded-md border border-border bg-surface text-[12.5px] font-mono text-text-dim focus:text-text focus:border-accent outline-none transition-colors"

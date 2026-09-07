@@ -5,8 +5,6 @@
 import { useEffect, useState } from "react";
 
 export type ChatRowFields = {
-  /** 所在工作目录 */
-  dir: boolean;
   /** 最后一句人话(带「我 / 助手」前缀) */
   last: boolean;
   /** 相对时间 */
@@ -14,7 +12,7 @@ export type ChatRowFields = {
 };
 
 const KEY = "worktop.chatRows.fields";
-const DEFAULTS: ChatRowFields = { dir: false, last: true, time: true };
+const DEFAULTS: ChatRowFields = { last: true, time: true };
 const EVENT = "worktop:chat-row-fields";
 
 const read = (): ChatRowFields => {

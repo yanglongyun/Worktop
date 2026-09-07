@@ -2,9 +2,11 @@
 // 行数组是可变结构(流式原地改行,tick 触发重渲染),事件按 chatId 认领 ——
 // 同一面板体系下,几个对话各开各的标签互不干扰,切走的运行在服务端继续转。
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, Folder, Paperclip, Send, Settings, Square, X } from "lucide-react";
+import { ArrowRight, FileText, Folder, LayoutGrid, Paperclip, PenLine, Plug, Send, Square, X } from "lucide-react";
 import { ApprovalCard } from "./ApprovalCard";
 import { RulesControl } from "./RulesControl";
+import { ModelSetupDialog } from "./ModelSetupDialog";
+import type { ChatStartTab } from "../workspace/types";
 import { permissionApi, type ApprovalCard as Card } from "../../lib/permission";
 
 import type { Attachment, Node } from "../../api";
@@ -21,20 +23,30 @@ export function ChatPanel({
   socket,
   onOpenNav: _onOpenNav,
   onOpenSettings,
+  onCreated,
 }: {
-  node: Node;
+  node: Node | ChatStartTab;
   onSelect: (n: Node) => void;
   socket: { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
   onOpenNav?: () => void;
   onOpenSettings?: () => void;
+  onCreated?: (node: Node, prompt: string, attachments: Attachment[]) => void;
 }) {
+  const isStart = node.kind === "chat-start";
+  const creatingRef = useRef(false);
+  const autoSentRef = useRef(false);
+  const [creating, setCreating] = useState(false);
+
   // 可变行数组 + tick:流式增量不换数组,只改行再摇铃
   const rowsRef = useRef<Row[]>([]);
   const [tick, setTick] = useState(0);
-  const [busy, setBusy] = useState(node.status === "running");
+  const [busy, setBusy] = useState((node.kind === "chat" && node.status === "running"));
   const [viewSeq, setViewSeq] = useState(0);
   const [prompt, setPrompt] = useState("");
-  const [configured, setConfigured] = useState(true); // 先假设已配置,避免初次闪现引导
+  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [modelName, setModelName] = useState("");
+  const [modelSetupOpen, setModelSetupOpen] = useState(false);
+  const [messagesLoaded, setMessagesLoaded] = useState(isStart);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -44,22 +56,22 @@ export function ChatPanel({
   const bump = useCallback(() => setTick((n) => n + 1), []);
   const pushRow = useCallback((row: Row) => { rowsRef.current.push(row); return row; }, []);
 
-  // 没配模型的话发消息会一片空白 → 显示引导
+  // 配置保存后同步所有已打开的对话,无需切走再回来。
   useEffect(() => {
-    api.getSettings()
-      .then((r) => { const s = r.settings || ({} as any); setConfigured(!!(s.model && s.apiUrl)); })
-      .catch(() => {});
+    let active = true;
+    const reload = () => { void api.getSettings()
+      .then(({ settings: s }) => {
+        if (!active) return;
+        setConfigured(!!(s.model.trim() && s.apiUrl.trim()));
+        setModelName(s.model);
+      }).catch(() => {}); };
+    reload();
+    window.addEventListener("worktop:settings-saved", reload);
+    return () => { active = false; window.removeEventListener("worktop:settings-saved", reload); };
   }, [node.id]);
-
-  // 工作目录芯片:标签页恢复的 node 可能没带 workdir,补拉一次
-  const [workdir, setWorkdir] = useState(node.workdir || "");
-  useEffect(() => {
-    setWorkdir(node.workdir || "");
-    if (!node.workdir) api.getChat(node.id).then((r) => setWorkdir(r.node.workdir || "")).catch(() => {});
-  }, [node.id]);
-  const shortWorkdir = workdir.replace(/^\/Users\/[^/]+/, "~");
 
   const refresh = useCallback(async () => {
+    if (isStart) return;
     const result = await api.listMessages(node.id).catch(() => null);
     if (!result) return;
     const next = renderRows(result.rows || []);
@@ -69,13 +81,15 @@ export function ChatPanel({
       if (next[i].kind === prev[i].kind) next[i].key = prev[i].key;
     }
     rowsRef.current = next;
+    setMessagesLoaded(true);
     bump();
   }, [node.id, bump]);
 
   // 草稿按对话落 localStorage,切走再回来不丢
   const draftKey = `worktop.draft:${node.id}`;
   useEffect(() => {
-    try { setPrompt(localStorage.getItem(draftKey) || ""); } catch { setPrompt(""); }
+    const initial = node.kind === "chat-start" ? node.initialPrompt || "" : "";
+    try { setPrompt(localStorage.getItem(draftKey) ?? initial); } catch { setPrompt(initial); }
   }, [node.id]);
   const persistDraft = (value: string) => {
     try {
@@ -88,7 +102,9 @@ export function ChatPanel({
   const streamRef = useRef<ReturnType<typeof setupStream> | null>(null);
   useEffect(() => {
     rowsRef.current = [];
-    setBusy(node.status === "running");
+    setMessagesLoaded(isStart);
+    if (isStart) { setBusy(false); bump(); return; }
+    setBusy((node.kind === "chat" && node.status === "running"));
     bump();
     streamRef.current = setupStream({
       chatId: node.id,
@@ -107,6 +123,7 @@ export function ChatPanel({
 
   // 订阅对话事件(广播全量,reducer 按 chatId 认领)
   useEffect(() => {
+    if (isStart) return;
     const names = Object.values(EVENTS) as string[];
     const offs = names.map((name) => socket.on(name, (payload: any) => {
       streamRef.current?.onEvent(payload);
@@ -121,7 +138,7 @@ export function ChatPanel({
     if (!element) return;
     element.style.height = "auto";
     element.style.height = Math.min(element.scrollHeight, 240) + "px";
-  }, [prompt]);
+  }, [prompt, configured]);
 
   // 附件上传:选择 / 拖拽 / 粘贴共用一条路 —— base64 交给 /api/upload,只留元数据
   const upload = async (files: FileList | File[]) => {
@@ -147,11 +164,27 @@ export function ChatPanel({
     }
   };
 
-  const send = () => {
+  const send = async () => {
     const text = prompt.trim();
-    if ((!text && !attachments.length) || busy || uploading) return;
-    if (!configured) { onOpenSettings?.(); return; }
+    if ((!text && !attachments.length) || busy || uploading || creatingRef.current) return;
+    if (configured === null) return;
+    if (!configured) { setModelSetupOpen(true); return; }
     const files = attachments;
+    if (isStart) {
+      if (!onCreated) return;
+      creatingRef.current = true;
+      setCreating(true);
+      try {
+        const result = await api.createChat({ title: "" });
+        persistDraft("");
+        onCreated(result.item, text, files);
+      } catch (error) {
+        void dialog.alert(error instanceof Error ? error.message : "新建对话失败，请重试。");
+        creatingRef.current = false;
+        setCreating(false);
+      }
+      return;
+    }
     setPrompt("");
     setAttachments([]);
     persistDraft("");
@@ -164,11 +197,19 @@ export function ChatPanel({
     socket.send({ type: "send", chatId: node.id, prompt: text, attachments: files });
   };
 
+  // 新标签页中按回车已表达发送意图;模型未配置时保留草稿,配置完成后再发送。
+  useEffect(() => {
+    if (node.kind !== "chat-start" || !node.sendOnOpen || autoSentRef.current || !configured || !prompt.trim()) return;
+    autoSentRef.current = true;
+    void send();
+  }, [configured, prompt]);
+
   // ── 审批:卡片跟着这段对话走 ──────────────────────────────────────────
   // 刷新页面要把还悬着的卡捞回来,否则用户永远等不到那张卡(轮次还挂在那儿等表态)
   const [approvals, setApprovals] = useState<Card[]>([]);
   useEffect(() => {
     setApprovals([]);
+    if (isStart) return;
     void permissionApi.listApprovals(node.id).then(setApprovals).catch(() => {});
   }, [node.id]);
   useEffect(() => socket.on("approval_ask", (p: any) => {
@@ -190,22 +231,16 @@ export function ChatPanel({
       .catch(() => {});
   };
 
+  const empty = messagesLoaded && rowsRef.current.length === 0 && !busy && approvals.length === 0;
+  const chooseSuggestion = (value: string) => {
+    setPrompt(value);
+    persistDraft(value);
+    inputRef.current?.focus();
+  };
+
   return (
     <div className="flex-1 min-h-0 flex flex-col min-w-0 bg-bg">
-      {/* 工作目录芯片:这段对话住在哪个文件夹;点击去文件树里定位它 */}
-      {workdir && (
-        <div className="shrink-0 flex items-center px-4 md:px-8 py-1.5 border-b border-border bg-bg-raised/60">
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent("worktop:reveal-path", { detail: { path: workdir } }))}
-            title={`工作目录:${workdir}\n点击在文件树中定位`}
-            className="inline-flex items-center gap-1.5 max-w-full px-2 py-0.5 rounded text-[12px] text-text-dim hover:text-text hover:bg-bg-hover transition-colors"
-          >
-            <Folder size={12} className="shrink-0 text-accent" />
-            <span className="truncate font-mono">{shortWorkdir}</span>
-          </button>
-        </div>
-      )}
-      <MessageStream rows={rowsRef.current} busy={busy} tick={tick} viewSeq={viewSeq} />
+      {!empty && <MessageStream rows={rowsRef.current} busy={busy} tick={tick} viewSeq={viewSeq} />}
 
       {/* 审批卡:贴着消息流的末尾,和输入区之间 —— 它属于这一轮,不是浮层 */}
       {approvals.length > 0 && (
@@ -216,21 +251,34 @@ export function ChatPanel({
         </div>
       )}
 
-      {/* 输入区 — 固定底部。
-          不做通栏的横条:外层只负责居中与留白,视觉边界交给输入卡自己的描边,
-          宽度与消息列一致(max-w-3xl),读和写在同一条视线上。 */}
-      <div className="shrink-0 mx-auto w-full max-w-3xl px-4 md:px-8 pt-2 pb-4">
-        {!configured && (
-          <div className="flex items-center gap-1.5 mb-2 text-[12.5px] text-warning">
-            <Settings size={13} className="shrink-0" />
-            <span className="flex-1 min-w-0 truncate">还没配置模型,对话无法运行。</span>
-            <button onClick={() => onOpenSettings?.()} className="shrink-0 font-medium hover:underline">
-              去设置 →
-            </button>
+      {/* 同一个输入器:首条消息前居中,开始对话后回到底部,保留草稿与附件状态。 */}
+      <div className={empty ? "flex-1 min-h-0 overflow-y-auto flex flex-col" : "shrink-0"}>
+      <div className={`mx-auto w-full max-w-3xl px-4 md:px-8 ${empty ? "my-auto py-10" : "pt-2 pb-4"}`}>
+        {empty && configured !== null && (
+          <div className={`mb-7 ${configured ? "text-center" : "mx-auto max-w-md text-center"}`}>
+            {!configured && <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-accent/15 bg-accent/5 text-accent"><Plug size={23} strokeWidth={1.6} /></div>}
+            <h1 className="text-[26px] md:text-[30px] font-semibold tracking-tight text-text">
+              {configured ? "今天想做什么？" : "连接模型，开始工作"}
+            </h1>
+            <p className="mt-3 text-[13.5px] leading-7 text-text-dim">
+              {configured ? "从一个想法、一份文件，或一件想完成的事开始。" : "配置模型后，就可以让 AI 处理文件、编写内容和执行任务。"}
+            </p>
+            {!configured && <>
+              <button onClick={() => setModelSetupOpen(true)} className="mx-auto mt-7 inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-white hover:opacity-90">
+                配置模型<ArrowRight size={15} />
+              </button>
+              <p className="mt-4 text-[11.5px] text-text-faint">准备好接口地址、密钥和模型名称即可</p>
+            </>}
           </div>
         )}
+        {configured === null && <div className="py-4 text-center text-[12px] text-text-faint">正在读取模型配置…</div>}
+        {configured === false && !empty && <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-[12px] text-text-dim">
+          <span>配置模型后，继续这段对话。</span>
+          <button onClick={() => setModelSetupOpen(true)} className="shrink-0 text-accent">配置模型 →</button>
+        </div>}
+        <div hidden={configured !== true && !busy}>
         <div
-          className="flex flex-col rounded-xl border border-border bg-surface cursor-text focus-within:border-accent transition-colors"
+          className={`flex flex-col rounded-2xl border border-border bg-surface cursor-text focus-within:border-accent transition-colors ${empty ? "shadow-[0_4px_24px_rgba(0,0,0,0.035)]" : ""}`}
           onClick={(e) => { if (e.target === e.currentTarget) inputRef.current?.focus(); }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files?.length) void upload(e.dataTransfer.files); }}
@@ -265,7 +313,8 @@ export function ChatPanel({
             rows={2}
             className="w-full min-h-[62px] max-h-60 bg-transparent px-3.5 pt-3 text-[15px] text-text placeholder:text-text-faint outline-none resize-none leading-relaxed overflow-y-auto"
             // 跑着的时候输入框是禁用的,再摆一句「发送消息…」等于叫人做一件做不了的事
-            placeholder={busy ? "正在运行中…" : "发送消息… (Enter 发送 · Shift+Enter 换行)"}
+            placeholder={busy ? "正在运行中…" : empty ? "描述你想完成的事，或添加文件…" : "发送消息…"}
+            aria-label="消息"
             value={prompt}
             onChange={(e) => { setPrompt(e.target.value); persistDraft(e.target.value); }}
             onCompositionStart={() => { composingRef.current = true; }}
@@ -282,7 +331,7 @@ export function ChatPanel({
                 send();
               }
             }}
-            disabled={busy}
+            disabled={busy || creating}
           />
 
           {/* 工具行:左边附件,右边发送/停止。独立一行,不与正文抢横向空间 */}
@@ -290,13 +339,14 @@ export function ChatPanel({
             <button
               title="添加图片或文件(也可拖拽 / 粘贴)"
               onClick={() => fileRef.current?.click()}
-              disabled={busy || uploading}
+              disabled={busy || creating || uploading}
               className="w-8 h-8 rounded-md flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover disabled:opacity-40 transition-colors shrink-0"
             >
               <Paperclip size={16} />
             </button>
-            <RulesControl on={rulesOn} onChange={changeRules} />
+            <RulesControl on={rulesOn} onChange={changeRules} quiet={empty} />
             <div className="flex-1" />
+            {modelName && <button onClick={() => onOpenSettings?.()} title={`当前模型：${modelName}`} className="max-w-[40%] truncate px-1 text-[11px] text-text-faint hover:text-text-dim">{modelName}</button>}
             {busy ? (
               <button
                 title="停止"
@@ -307,9 +357,9 @@ export function ChatPanel({
               </button>
             ) : (
               <button
-                title="发送"
+                title={creating ? "正在创建对话…" : "发送"}
                 onClick={send}
-                disabled={(!prompt.trim() && !attachments.length) || uploading}
+                disabled={(!prompt.trim() && !attachments.length) || uploading || creating}
                 className="w-8 h-8 rounded-md flex items-center justify-center bg-accent text-white hover:opacity-85 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
               >
                 <Send size={14} />
@@ -317,7 +367,26 @@ export function ChatPanel({
             )}
           </div>
         </div>
+        {empty && <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          {[
+            { label: "整理文件", icon: Folder, prompt: "帮我整理文件。先查看我指定的目录，提出分类建议，确认后再移动。" },
+            { label: "写点东西", icon: PenLine, prompt: "帮我写一份内容。先和我确认主题、用途和读者，再一起完成初稿。" },
+            { label: "做个小工具", icon: LayoutGrid, prompt: "我想做一个日常使用的小工具。先和我确认需求，再做一个可以使用的版本。" },
+          ].map((suggestion) => <button key={suggestion.label} onClick={() => chooseSuggestion(suggestion.prompt)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] text-text-dim hover:border-border-strong hover:bg-bg-hover">
+            <suggestion.icon size={13} className="text-text-faint" />{suggestion.label}
+          </button>)}
+        </div>}
+
+        </div>
       </div>
+      </div>
+      {modelSetupOpen && <ModelSetupDialog onClose={() => setModelSetupOpen(false)} onSaved={(settings) => {
+        setConfigured(!!(settings.model.trim() && settings.apiUrl.trim()));
+        setModelName(settings.model);
+        setModelSetupOpen(false);
+        requestAnimationFrame(() => inputRef.current?.focus());
+      }} />}
     </div>
   );
 }

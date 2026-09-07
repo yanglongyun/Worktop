@@ -19,14 +19,12 @@ export function FilePanel({
   node,
   draft,
   refreshKey = 0,
-  gotoLine,
   onChange,
   onSaved,
 }: {
   node: Node;
   draft?: string;
   refreshKey?: number;
-  gotoLine?: number;
   onChange: (value: string) => void;
   onSaved: () => void;
 }) {
@@ -55,7 +53,7 @@ export function FilePanel({
     api.getNode(node.id)
       .then((r) => {
         if (cancelled) return;
-        const n = r.node;
+        const n = r.item;
         setInfo({ binary: !!n.binary, tooLarge: !!n.tooLarge, size: n.size });
         const c = n.content ?? "";
         setContent(c); latest.current = c; setLoaded(true);
@@ -107,7 +105,6 @@ export function FilePanel({
       docKey={`${node.id}:${refreshKey}`}
       initialValue={content}
       filename={node.title}
-      gotoLine={gotoLine}
       onChange={(v) => { latest.current = v; setContent(v); onChange(v); }}
       onSave={save}
     />

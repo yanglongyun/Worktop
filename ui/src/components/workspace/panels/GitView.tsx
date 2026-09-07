@@ -386,7 +386,6 @@ function RepositoryBlock({
           </div>
 
           <ChangeGroup
-            id="conflicts"
             title="合并更改"
             count={conflicts.length}
             files={conflicts}
@@ -398,7 +397,6 @@ function RepositoryBlock({
             onContextMenu={openFileMenu}
           />
           <ChangeGroup
-            id="staged"
             title="暂存的更改"
             count={staged.length}
             files={staged}
@@ -415,7 +413,6 @@ function RepositoryBlock({
             groupAction={staged.length ? { title: "全部取消暂存", onClick: () => onRun("unstage-all", () => api.gitUnstage({ root, all: true })) } : undefined}
           />
           <ChangeGroup
-            id="changes"
             title="更改"
             count={unstaged.length}
             files={unstaged}
@@ -488,7 +485,6 @@ ${c.author} · ${c.date} · ${c.short}`}
 }
 
 function ChangeGroup({
-  id,
   title,
   count,
   files,
@@ -505,7 +501,6 @@ function ChangeGroup({
   onDiscard,
   onContextMenu,
 }: {
-  id: string;
   title: string;
   count: number;
   files: GitFileStatus[];

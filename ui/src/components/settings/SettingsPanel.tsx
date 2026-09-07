@@ -1,347 +1,239 @@
-import { useEffect, useState, type ReactNode } from "react";
-import type { Settings } from "../../api";
-import { api } from "../../api";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { api, type Settings, type SkillInfo } from "../../api";
 import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
 import { SEARCH_ENGINES, getSearchEngine, setSearchEngine, type SearchEngineId } from "../../lib/search";
 import { chromeImportAvailable } from "../../lib/chromeImport";
-import { Check, Settings2 } from "lucide-react";
+import { Bot, Check, ChevronRight, ExternalLink, Globe, Info, Loader2, Settings2, Sparkles, SlidersHorizontal } from "lucide-react";
 import { ChromeImportDialog } from "../ui";
+import { ModelConnectionFields, settingsInputClass as inputClass } from "./ModelConnectionFields";
+
+import { SkillsSettings } from "./SkillsSettings";
 
 const emptySettings: Settings = {
-  apiUrl: "",
-  apiKey: "",
-  model: "",
-  system: "",
-  compressThreshold: "60000",
-  compactPrompt: "",
-  toolResultMaxChars: "30000",
-  telemetry: "on",
+  apiUrl: "", apiKey: "", model: "", system: "", compressThreshold: "64000",
+  compactPrompt: "", toolResultMaxChars: "30000", telemetry: "on",
 };
+const categories = [
+  { id: "model", label: "模型", icon: Bot, description: "连接模型，设置助手的回应方式。" },
+  { id: "browser", label: "浏览器", icon: Globe, description: "管理搜索偏好、导入数据和网站状态。" },
+  { id: "skills", label: "技能", icon: Sparkles, description: "管理助手可使用的技能，查看说明或调整启用状态。" },
+  { id: "general", label: "通用", icon: Settings2, description: "让 Worktop 更符合你的使用习惯。" },
+  { id: "advanced", label: "高级", icon: SlidersHorizontal, description: "调整长对话和工具结果的处理方式。" },
+  { id: "about", label: "关于", icon: Info, description: "Worktop · 本地 AI 工作台" },
+] as const;
+type Category = typeof categories[number]["id"];
+type SaveGroup = "connection" | "system" | "advanced" | "telemetry";
+type SaveState = { busy?: boolean; error?: string; saved?: boolean };
+const secondaryButton = "shrink-0 border border-border px-3 py-1.5 text-[12px] font-medium text-text transition-colors hover:bg-bg-hover disabled:opacity-40";
 
-const inputClass =
-  "w-full border border-border bg-bg px-3 py-2 text-[13px] text-text outline-none transition-colors focus:border-accent";
-const repositoryUrl = "https://github.com/yanglongyun/Worktop";
-
-export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => void }) {
+export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: Settings) => void; onOpenSkill: (skill: SkillInfo) => void }) {
+  const tabId = useId();
+  const [category, setCategory] = useState<Category>("model");
   const [form, setForm] = useState<Settings>(emptySettings);
-  const [saved, setSaved] = useState(false);
-  // 外观是本机视觉偏好:即改即生效,存 localStorage,不进服务端设置
-  const [themePref, setThemePrefState] = useState<ThemePref>(() => getThemePref());
-  // 搜索引擎同理:地址栏 / 新标签页里输了不像网址的东西交给谁搜
-  const [searchEngine, setSearchEngineState] = useState<SearchEngineId>(() => getSearchEngine().id);
-  const changeSearchEngine = (id: SearchEngineId) => { setSearchEngine(id); setSearchEngineState(id); };
-  const changeTheme = (pref: ThemePref) => { setThemePrefState(pref); setThemePref(pref); };
+  const [baseline, setBaseline] = useState<Settings>(emptySettings);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [states, setStates] = useState<Partial<Record<SaveGroup, SaveState>>>({});
+  const saving = useRef(new Set<SaveGroup>());
+  const [theme, setTheme] = useState<ThemePref>(getThemePref);
+  const [search, setSearch] = useState<SearchEngineId>(() => getSearchEngine().id);
+  const [localNote, setLocalNote] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
-    api.getSettings().then((r) => {
-      if (cancelled) return;
-      const settings = { ...emptySettings, ...r.settings };
-      setForm(settings);
-    });
-    return () => { cancelled = true; };
-  }, []);
+    let active = true;
+    setLoadError("");
+    void api.getSettings().then(({ settings }) => {
+      if (!active) return;
+      const current = { ...emptySettings, ...settings };
+      setForm(current); setBaseline(current); setLoaded(true);
+    }).catch((e) => { if (active) setLoadError(e instanceof Error ? e.message : "无法读取设置"); });
+    return () => { active = false; };
+  }, [loadAttempt]);
 
-  const saveModel = async () => {
-    const result = await api.saveSettings(form);
-    const settings = { ...emptySettings, ...result.settings };
-    setForm(settings);
-    onSaved?.(result.settings);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-
-  const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
+  const edit = (key: keyof Settings, value: string, group: SaveGroup) => {
     setForm((current) => ({ ...current, [key]: value }));
+    setStates((current) => ({ ...current, [group]: {} }));
+  };
+  const dirty = (keys: (keyof Settings)[]) => keys.some((key) => form[key] !== baseline[key]);
+  const save = async (group: SaveGroup, patch: Partial<Settings>) => {
+    if (saving.current.has(group)) return;
+    saving.current.add(group);
+    setStates((current) => ({ ...current, [group]: { busy: true } }));
+    try {
+      const { settings } = await api.saveSettings(patch);
+      // 只同步本次保存的字段,其他分类尚未保存的草稿保持不变。
+      const saved = Object.fromEntries(Object.keys(patch).map((key) => [key, settings[key as keyof Settings]]));
+      setForm((current) => ({ ...current, ...saved }));
+      setBaseline((current) => ({ ...current, ...saved }));
+      setStates((current) => ({ ...current, [group]: { saved: true } }));
+      onSaved?.(settings);
+    } catch (e) {
+      setStates((current) => ({ ...current, [group]: { error: e instanceof Error ? e.message : "保存失败，请重试。" } }));
+    } finally { saving.current.delete(group); }
+  };
+  const selected = categories.find((item) => item.id === category)!;
+  const connectionDirty = dirty(["apiUrl", "apiKey", "model"]);
+  const advancedDirty = dirty(["compressThreshold", "toolResultMaxChars", "compactPrompt"]);
 
-  return (
-    <div className="flex-1 min-h-0 flex flex-col bg-bg">
-      <div className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-5 md:px-8">
-          <Settings2 size={15} className="text-accent" />
-          <span className="flex-1 min-w-0 py-2 text-[13px] font-semibold text-text">设置</span>
-          <button
-            onClick={saveModel}
-            className={[
-              "my-1.5 inline-flex h-7 shrink-0 items-center justify-center gap-1.5 px-3 text-[12.5px] font-medium transition-colors",
-              saved ? "bg-success/10 text-success" : "bg-accent text-white hover:opacity-90",
-            ].join(" ")}
-          >
-            {saved ? <><Check size={13} /> 已保存</> : "保存"}
-          </button>
-        </div>
+  return <div className="@container flex min-h-0 flex-1 flex-col bg-bg">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 border-b border-border bg-surface">
+        <nav role="tablist" aria-label="设置分类" className="mx-auto flex max-w-4xl overflow-x-auto px-8 @max-[640px]:px-3">
+          {categories.map(({ id, label, icon: Icon }, index) => <button key={id} type="button"
+            role="tab" id={`${tabId}-${id}`} aria-selected={category === id} aria-controls={`${tabId}-panel`} tabIndex={category === id ? 0 : -1}
+            onClick={() => setCategory(id)}
+            onKeyDown={(e) => {
+              const next = e.key === "ArrowRight" ? (index + 1) % categories.length
+                : e.key === "ArrowLeft" ? (index + categories.length - 1) % categories.length
+                : e.key === "Home" ? 0 : e.key === "End" ? categories.length - 1 : null;
+              if (next === null) return;
+              e.preventDefault();
+              setCategory(categories[next].id);
+              e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+            }}
+            className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-[13px] transition-colors @max-[640px]:px-3 ${category === id ? "border-accent font-medium text-text" : "border-transparent text-text-dim hover:bg-bg-hover hover:text-text"}`}>
+            <Icon size={14} /><span>{label}</span>
+          </button>)}
+        </nav>
       </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto w-full max-w-4xl px-5 md:px-8">
-          <div className="divide-y divide-border">
-            <Field label="外观">
-              <select
-                className={`${inputClass} cursor-pointer`}
-                value={themePref}
-                onChange={(e) => changeTheme(e.target.value as ThemePref)}
-              >
-                <option value="system">跟随系统</option>
-                <option value="light">浅色</option>
-                <option value="dark">深色</option>
-              </select>
-            </Field>
-
-            <Field label="搜索引擎">
-              <select
-                className={`${inputClass} cursor-pointer`}
-                value={searchEngine}
-                onChange={(e) => changeSearchEngine(e.target.value as SearchEngineId)}
-              >
-                {SEARCH_ENGINES.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-              </select>
-              <div className="mt-1.5 text-[12px] text-text-faint">地址栏和新标签页里输的不像网址的内容,交给它搜。</div>
-            </Field>
-
-            <Field label="接口地址">
-              <input
-                className={inputClass}
-                value={form.apiUrl}
-                onChange={(e) => set("apiUrl", e.target.value)}
-                placeholder="https://api.openai.com/v1/responses"
-              />
-            </Field>
-
-            <Field label="密钥">
-              <input
-                className={inputClass}
-                type="password"
-                value={form.apiKey}
-                onChange={(e) => set("apiKey", e.target.value)}
-              />
-            </Field>
-
-            <Field label="模型">
-              <input
-                className={inputClass}
-                value={form.model}
-                onChange={(e) => set("model", e.target.value)}
-                placeholder="该接口下的模型名,如 glm-4.7 / deepseek-chat"
-              />
-            </Field>
-
-            <Field label="默认系统提示词" alignTop>
-              <textarea
-                className={`${inputClass} min-h-40 resize-y leading-relaxed`}
-                rows={8}
-                value={form.system}
-                onChange={(e) => set("system", e.target.value)}
-              />
-            </Field>
-
-            <Field label="压缩阈值">
-              <input
-                className={inputClass}
-                type="number"
-                min={0}
-                step={100}
-                value={form.compressThreshold || "60000"}
-                onChange={(e) => set("compressThreshold", e.target.value)}
-              />
-            </Field>
-
-            <Field label="工具结果上限">
-              <input
-                className={inputClass}
-                type="number"
-                min={1000}
-                max={50000}
-                step={1000}
-                value={form.toolResultMaxChars || "30000"}
-                onChange={(e) => set("toolResultMaxChars", e.target.value)}
-              />
-            </Field>
-
-            <Field label="压缩提示词" alignTop>
-              <textarea
-                className={`${inputClass} min-h-32 resize-y leading-relaxed`}
-                rows={6}
-                value={form.compactPrompt || ""}
-                onChange={(e) => set("compactPrompt", e.target.value)}
-              />
-            </Field>
-
-            <Field label="网页登录状态" alignTop group>
-              <BrowserLogins />
-            </Field>
-
-            <Field label="匿名统计">
-              <div>
-                <select
-                  className={`${inputClass} cursor-pointer`}
-                  value={form.telemetry || "on"}
-                  onChange={(e) => set("telemetry", e.target.value)}
-                >
-                  <option value="on">开启</option>
-                  <option value="off">关闭</option>
+      <main role="tabpanel" id={`${tabId}-panel`} aria-labelledby={`${tabId}-${category}`} tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none">
+        <div className="mx-auto max-w-4xl px-8 py-6 @max-[640px]:px-5 @max-[640px]:py-6">
+          <header className="mb-6 border-b border-border pb-4"><h1 className="text-[17px] font-semibold text-text">{selected.label}</h1>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-text-faint">{selected.description}</p></header>
+          {!loaded ? <div className="py-8 text-[13px] text-text-dim">{loadError ? <><p role="alert" className="mb-3 text-danger">{loadError}</p><button className={secondaryButton} onClick={() => setLoadAttempt((n) => n + 1)}>重新加载</button></> : "正在读取设置…"}</div> : <>
+            <div hidden={category !== "model"} className="space-y-6">
+              <Section title="模型连接" description="支持 Responses 兼容接口。">
+                <form onSubmit={(e) => { e.preventDefault(); void save("connection", { apiUrl: form.apiUrl.trim(), apiKey: form.apiKey.trim(), model: form.model.trim() }); }}>
+                  <ModelConnectionFields rows value={form} onChange={(key, value) => edit(key, value, "connection")} disabled={states.connection?.busy} />
+                  <SaveFooter dirty={connectionDirty} state={states.connection} disabled={!form.apiUrl.trim() || !form.model.trim()} />
+                </form>
+              </Section>
+              <Section title="助手指令" description="作为默认系统提示词，设定助手的语气、偏好与工作方式。">
+                <form onSubmit={(e) => { e.preventDefault(); void save("system", { system: form.system }); }}>
+                  <textarea aria-label="助手指令" name="system" className={`${inputClass} min-h-32 resize-y leading-relaxed`} rows={5}
+                    value={form.system} disabled={states.system?.busy} onChange={(e) => edit("system", e.target.value, "system")} />
+                  <SaveFooter dirty={dirty(["system"])} state={states.system} />
+                </form>
+              </Section>
+            </div>
+            <div hidden={category !== "browser"} className="space-y-6">
+              <Section title="浏览偏好"><Field label="搜索引擎" description="用于地址栏和新标签页中的搜索。">
+                <select className={inputClass} value={search} onChange={(e) => { const value = e.target.value as SearchEngineId; setSearchEngine(value); setSearch(value); setLocalNote("search"); }}>
+                  {SEARCH_ENGINES.map((engine) => <option key={engine.id} value={engine.id}>{engine.name}</option>)}
                 </select>
-                <div className="mt-1.5 text-[12px] text-text-faint">
-                  仅上报事件名、版本、平台与匿名安装 id,用于统计活跃与更新率;不含任何对话、文件或网址内容。
-                </div>
-              </div>
-            </Field>
-
-            <Field label="关于" alignTop group>
-              <div className="space-y-1.5 py-1 text-[13px] text-text-dim">
-                <div>版本 {__APP_VERSION__}</div>
-                <a
-                  href={repositoryUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex text-accent hover:underline"
-                >
-                  {repositoryUrl}
-                </a>
-              </div>
-            </Field>
-          </div>
+              </Field>{localNote === "search" && <SavedNote />}</Section>
+              <BrowserData />
+            </div>
+            {category === "skills" && <SkillsSettings onOpenSkill={onOpenSkill} />}
+            <div hidden={category !== "general"} className="space-y-6">
+              <Section title="外观"><Field label="主题">
+                <select className={inputClass} value={theme} onChange={(e) => { const value = e.target.value as ThemePref; setThemePref(value); setTheme(value); setLocalNote("theme"); }}>
+                  <option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option>
+                </select>
+              </Field>{localNote === "theme" && <SavedNote />}</Section>
+              <Section title="使用统计"><Field label="匿名使用统计" description="仅上报事件名、版本、平台与匿名安装 ID，用于了解使用情况。不包含对话、文件或网址内容。">
+                <select className={inputClass} value={form.telemetry} disabled={states.telemetry?.busy}
+                  onChange={(e) => { void save("telemetry", { telemetry: e.target.value }); }}>
+                  <option value="on">开启</option><option value="off">关闭</option>
+                </select>
+              </Field><SaveFeedback state={states.telemetry} /></Section>
+            </div>
+            <div hidden={category !== "advanced"}>
+              <Section title="上下文管理" description="通常保持默认值即可。">
+                <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void save("advanced", { compressThreshold: form.compressThreshold, toolResultMaxChars: form.toolResultMaxChars, compactPrompt: form.compactPrompt }); }}>
+                  <fieldset disabled={states.advanced?.busy} className="min-w-0 space-y-5">
+                    <Field label="压缩阈值" description="对话达到此 token 数量时压缩历史内容。默认 64000，设为 0 关闭自动压缩。">
+                      <input name="compressThreshold" className={inputClass} type="number" min={0} step={1} required value={form.compressThreshold} onChange={(e) => edit("compressThreshold", e.target.value, "advanced")} />
+                    </Field>
+                    <Field label="工具结果上限" description="单次工具结果保留的最多字符数。默认 30000，可设置为 1000–50000。">
+                      <input name="toolResultMaxChars" className={inputClass} type="number" min={1000} max={50000} step={1} required value={form.toolResultMaxChars} onChange={(e) => edit("toolResultMaxChars", e.target.value, "advanced")} />
+                    </Field>
+                    <details className="group border-t border-border pt-4">
+                      <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] font-medium text-text [&::-webkit-details-marker]:hidden"><ChevronRight size={14} className="transition-transform group-open:rotate-90" />自定义压缩提示词</summary>
+                      <p className="mb-3 mt-2 text-[12px] leading-relaxed text-text-faint">控制历史对话如何被总结，留空使用默认提示词。</p>
+                      <textarea aria-label="压缩提示词" name="compactPrompt" className={`${inputClass} min-h-32 resize-y leading-relaxed`} rows={5} value={form.compactPrompt} onChange={(e) => edit("compactPrompt", e.target.value, "advanced")} />
+                    </details>
+                  </fieldset>
+                  <SaveFooter dirty={advancedDirty} state={states.advanced} />
+                </form>
+              </Section>
+            </div>
+            <div hidden={category !== "about"}><Section title="Worktop">
+              <div className="flex items-center justify-between text-[13px]"><span className="text-text-dim">当前版本</span><span className="text-text">{__APP_VERSION__}</span></div>
+              <a href="https://github.com/yanglongyun/Worktop" target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-1.5 text-[13px] text-accent hover:underline">访问 GitHub 项目<ExternalLink size={13} /></a>
+            </Section></div>
+          </>}
         </div>
-      </div>
+      </main>
     </div>
-  );
+  </div>;
 }
 
-/** 网页标签的登录态:导入、退出、清缓存。三个动作分开 —— 别让用户一按就退登。 */
-function BrowserLogins() {
+function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return <section className="border-b border-border pb-6 last:border-b-0 last:pb-0"><h2 className="text-[13px] font-medium text-text">{title}</h2>
+    {description && <p className="mt-1.5 text-[12px] leading-relaxed text-text-faint">{description}</p>}
+    <div className="mt-4">{children}</div>
+  </section>;
+}
+function Field({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
+  return <label className="grid grid-cols-[140px_minmax(0,1fr)] items-start gap-4 @max-[640px]:grid-cols-1 @max-[640px]:gap-2"><span className="pt-2 text-[12px] text-text-dim @max-[640px]:pt-0">{label}</span>
+    <span className="min-w-0">{children}{description && <span className="mt-2 block text-[12px] leading-relaxed text-text-faint">{description}</span>}</span>
+  </label>;
+}
+function SavedNote() { return <p role="status" className="mt-3 flex items-center gap-1.5 text-[12px] text-text-faint"><Check size={13} />已保存</p>; }
+function SaveFeedback({ state }: { state?: SaveState }) {
+  if (state?.error) return <p role="alert" className="mt-3 break-words text-[12px] text-danger">{state.error}</p>;
+  if (state?.busy) return <p role="status" className="mt-3 text-[12px] text-text-faint">正在保存…</p>;
+  return state?.saved ? <SavedNote /> : null;
+}
+function SaveFooter({ dirty, state, disabled }: { dirty: boolean; state?: SaveState; disabled?: boolean }) {
+  return <><SaveFeedback state={state} />{dirty && <div className="mt-4 flex items-center justify-between gap-3">
+    <span className="text-[12px] text-text-faint">有未保存的更改</span>
+    <button type="submit" disabled={state?.busy || disabled} className="inline-flex items-center gap-1.5 bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-40">
+      {state?.busy && <Loader2 size={13} className="animate-spin" />}{state?.busy ? "保存中…" : "保存更改"}
+    </button>
+  </div>}</>;
+}
+
+function BrowserData() {
   const [available, setAvailable] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState("");
-
-  useEffect(() => { void chromeImportAvailable().then(setAvailable); }, []);
-
-  const run = (key: string, action: () => Promise<string>) => {
-    setBusy(key);
-    setNote("");
-    void action()
-      .then(setNote)
-      .catch((e) => setNote(e?.message || "操作失败"))
-      .finally(() => setBusy(""));
+  const [error, setError] = useState(false);
+  useEffect(() => { void chromeImportAvailable().then(setAvailable).catch(() => setAvailable(false)); }, []);
+  const run = async (key: string, action: () => Promise<string>) => {
+    setBusy(key); setNote(""); setError(false);
+    try { setNote(await action()); }
+    catch (e) { setError(true); setNote(e instanceof Error ? e.message : "操作失败"); }
+    finally { setBusy(""); }
   };
-
-  const rowBtn = "shrink-0 px-3 py-1.5 border border-border text-[13px] text-text hover:bg-bg-hover disabled:opacity-40 transition-colors";
-
-  return (
-    <div className="space-y-3 py-1">
-      {importOpen && (
-        <ChromeImportDialog
-          onClose={() => setImportOpen(false)}
-          onDone={(r) => setNote(
-            `已从 ${r.profile} 导入 ${r.imported} 条登录信息` +
-            `${r.failed ? `,跳过 ${r.failed} 条` : ""}` +
-            `${r.bookmarks ? `,新增 ${r.bookmarks} 个网站` : ""}。刷新页面后生效。`,
-          )}
-        />
-      )}
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] text-text">从 Chrome 导入登录状态</div>
-          <div className="mt-0.5 text-[12px] text-text-faint leading-relaxed">
-            {available
-              ? "选择配置与要导入的数据。导入登录信息需通过系统钥匙串授权。"
-              : "需要 macOS 上装有 Chrome"}
-          </div>
-        </div>
-        <button className={rowBtn} disabled={!available || !!busy} onClick={() => setImportOpen(true)}>
-          导入…
-        </button>
-      </div>
-
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] text-text">退出所有网站</div>
-          <div className="mt-0.5 text-[12px] text-text-faint">清除 Cookie 与站点数据,所有网站将退出登录</div>
-        </div>
-        <button
-          className={rowBtn}
-          disabled={!!busy}
-          onClick={() => run("logout", async () => {
-            const r = await window.worktopDesktop?.clearWebLogins();
-            if (r && !r.ok) throw new Error(r.error || "清除失败");
-            return "已退出所有网站";
-          })}
-        >
-          {busy === "logout" ? "清除中…" : "清除"}
-        </button>
-      </div>
-
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] text-text">清空网站权限</div>
-          <div className="mt-0.5 text-[12px] text-text-faint">撤销已授予的摄像头、麦克风、位置等权限,以及证书例外</div>
-        </div>
-        <button
-          className={rowBtn}
-          disabled={!!busy}
-          onClick={() => run("perm", async () => {
-            await window.worktopDesktop?.forgetWebPermissions();
-            return "已清空,下次访问会重新询问。";
-          })}
-        >
-          {busy === "perm" ? "清空中…" : "清空"}
-        </button>
-      </div>
-
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] text-text">清除缓存</div>
-          <div className="mt-0.5 text-[12px] text-text-faint">腾出磁盘空间,不影响登录状态</div>
-        </div>
-        <button
-          className={rowBtn}
-          disabled={!!busy}
-          onClick={() => run("cache", async () => {
-            const r = await window.worktopDesktop?.clearWebCache();
-            if (r && !r.ok) throw new Error(r.error || "清除失败");
-            return "缓存已清除";
-          })}
-        >
-          {busy === "cache" ? "清除中…" : "清除"}
-        </button>
-      </div>
-
-      {note && <div className="text-[12px] text-accent">{note}</div>}
-    </div>
-  );
+  const desktop = window.worktopDesktop;
+  return <>
+    {importOpen && <ChromeImportDialog onClose={() => setImportOpen(false)} onDone={(r) => {
+      setError(false);
+      setNote(`已从 ${r.profile} 导入 ${r.imported} 条登录信息${r.failed ? `，跳过 ${r.failed} 条` : ""}${r.bookmarks ? `，新增 ${r.bookmarks} 个网站` : ""}。刷新页面后生效。`);
+    }} />}
+    <Section title="导入数据"><ActionRow label="从 Chrome 导入" description={available ? "选择要导入的书签与登录数据。导入登录信息需通过系统钥匙串授权。" : "需要 macOS 上装有 Chrome。"}>
+      <button className={secondaryButton} disabled={!available || !!busy} onClick={() => setImportOpen(true)}>从 Chrome 导入</button>
+    </ActionRow></Section>
+    <Section title="网站数据"><div className="space-y-5">
+      <ActionRow label="缓存" description="释放磁盘空间，保留网站登录状态。"><button className={secondaryButton} disabled={!desktop || !!busy} onClick={() => void run("cache", async () => {
+        const r = await desktop!.clearWebCache(); if (!r.ok) throw new Error(r.error || "清除失败"); return "缓存已清除";
+      })}>{busy === "cache" ? "清除中…" : "清除缓存"}</button></ActionRow>
+      <ActionRow label="登录状态" description="清除 Cookie 与站点数据，所有网站将退出登录。"><button className={secondaryButton} disabled={!desktop || !!busy} onClick={() => void run("logout", async () => {
+        const r = await desktop!.clearWebLogins(); if (!r.ok) throw new Error(r.error || "清除失败"); return "已退出所有网站";
+      })}>{busy === "logout" ? "退出中…" : "退出所有网站"}</button></ActionRow>
+      <ActionRow label="网站权限" description="重置摄像头、麦克风、位置等授权及证书例外，下次访问时重新询问。"><button className={secondaryButton} disabled={!desktop || !!busy} onClick={() => void run("perm", async () => {
+        await desktop!.forgetWebPermissions(); return "网站权限已重置";
+      })}>{busy === "perm" ? "重置中…" : "重置网站权限"}</button></ActionRow>
+    </div></Section>
+    {note && <p role={error ? "alert" : "status"} className={`text-[12px] leading-relaxed ${error ? "text-danger" : "text-text-dim"}`}>{note}</p>}
+  </>;
 }
-
-/**
- * 一行设置:左边标题,右边内容。
- *
- * **只装着一个控件时才用 `<label>`。** label 会把落在它任何地方的点击转发给里面的
- * 第一个表单控件 —— 对单个输入框这是想要的(点标题就聚焦),但内容是一组行的时候
- * 就成了灾难:点左边空白的标题栏,会触发那一组里的第一个按钮。
- * 「点设置页的空白处,弹出了从浏览器导入」就是这么来的,不是弹窗自己的问题。
- *
- * 所以装一组东西的用 `group`,渲染成普通 div,点空白什么都不会发生。
- */
-function Field({
-  label,
-  children,
-  alignTop = false,
-  group = false,
-}: {
-  label: string;
-  children: ReactNode;
-  alignTop?: boolean;
-  /** 内容是一组控件(多按钮/多行)而不是单个输入框 —— 用 div,别用 label。 */
-  group?: boolean;
-}) {
-  const Tag = group ? "div" : "label";
-  return (
-    <Tag
-      className={[
-        "grid grid-cols-[170px_minmax(0,1fr)] gap-4 py-4 max-md:grid-cols-1 max-md:gap-2",
-        alignTop ? "items-start" : "items-center",
-      ].join(" ")}
-    >
-      <span className="text-[12px] font-medium uppercase tracking-wide text-text-faint">{label}</span>
-      {children}
-    </Tag>
-  );
+function ActionRow({ label, description, children }: { label: string; description: string; children: ReactNode }) {
+  return <div className="flex items-center gap-5 @max-[640px]:flex-wrap @max-[640px]:gap-3">
+    <div className="min-w-0 flex-1 @max-[640px]:basis-full"><div className="text-[13px] font-medium text-text">{label}</div><p className="mt-1 text-[12px] leading-relaxed text-text-faint">{description}</p></div>{children}
+  </div>;
 }

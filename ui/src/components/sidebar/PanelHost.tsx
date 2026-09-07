@@ -21,7 +21,6 @@ import { FilesPanel } from "./panels/FilesPanel";
 import { SitesPanel } from "./panels/SitesPanel";
 import { AppsPanel } from "./panels/AppsPanel";
 import { TasksPanel } from "./panels/TasksPanel";
-import { SkillsPanel } from "./panels/SkillsPanel";
 import { WidgetFrame } from "../widgets/WidgetFrame";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
@@ -90,13 +89,11 @@ export function PanelHost({
   onOpenUrl,
   onOpenApp,
   onOpenTask,
-  onOpenSkill,
   onToggleNav,
   onSetDesktopOpen,
   onOpenSide,
   onOpenTerminal,
   onOpenGit,
-  createParentId,
   refreshKey,
   settingsActive,
   onOpenSettings,
@@ -113,14 +110,12 @@ export function PanelHost({
   onOpenApp: (appId: string, name: string) => void;
   /** 打开一条任务的详情标签。 */
   onOpenTask: (taskId: string, title: string) => void;
-  onOpenSkill: (skillId: string, title: string) => void;
   onToggleNav?: () => void;
   /** 直接设定内容面板开合(点当前图标收起、点别的图标展开都要一个确定态,toggle 不够)。 */
   onSetDesktopOpen?: (open: boolean) => void;
   onOpenSide?: (n: Node) => void;
   onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
   onOpenGit?: (repo: GitRepositoryStatus) => void;
-  createParentId?: string | null;
   refreshKey: number;
   settingsActive: boolean;
   onOpenSettings: () => void;
@@ -280,28 +275,14 @@ export function PanelHost({
     });
     if (!desc || !desc.trim()) return;
     try {
-      const r = await api.createChat({ title: "", workdir: createParentId || undefined });
-      onSelect(r.node);
-      socket.send({ type: "send", chatId: r.node.id, prompt: buildWidgetPrompt(desc) });
+      const r = await api.createChat({ title: "" });
+      onSelect(r.item);
+      socket.send({ type: "send", chatId: r.item.id, prompt: buildWidgetPrompt(desc) });
       switchTab("agents");
     } catch (e: any) {
       void dialog.alert(e?.message || "创建失败");
     }
   };
-
-  // 文件面板的「在此新建对话」:切到会话面板并带上预设 workdir
-  const [agentCreateReq, setAgentCreateReq] = useState<{ workdir?: string } | null>(null);
-  const createAgentAt = (workdir?: string) => {
-    switchTab("agents");
-    setAgentCreateReq({ workdir });
-  };
-
-  // 聊天面板的工作目录芯片 → 切到文件面板(定位展开由 FilesPanel 自己做)
-  useEffect(() => {
-    const onReveal = () => switchTab("files");
-    window.addEventListener("worktop:reveal-path", onReveal);
-    return () => window.removeEventListener("worktop:reveal-path", onReveal);
-  }, []);
 
   // 组件管理页(标签页)里点「让 AI 造一个」—— 动作住在这儿(要开对话、发提示词)
   useEffect(() => {
@@ -353,9 +334,9 @@ export function PanelHost({
     });
     if (!desc || !desc.trim()) return;
     try {
-      const r = await api.createChat({ title: "", workdir: createParentId || undefined });
-      onSelect(r.node);
-      socket.send({ type: "send", chatId: r.node.id, prompt: buildAppPrompt(desc) });
+      const r = await api.createChat({ title: "" });
+      onSelect(r.item);
+      socket.send({ type: "send", chatId: r.item.id, prompt: buildAppPrompt(desc) });
       switchTab("agents");
     } catch (e: any) {
       void dialog.alert(e?.message || "创建失败");
@@ -429,7 +410,7 @@ export function PanelHost({
       ].join(" ")}
     >
       {/* ── 活动栏:52px 竖排,三段:原生钉顶 → 固定的应用/网站/小组件(有才出现,带分割线,可滚)→ 小组件/任务/设置钉底 ── */}
-      <div className="w-[52px] shrink-0 flex flex-col items-center pt-2 pb-1.5">
+      <div className="w-[52px] shrink-0 flex flex-col items-center py-1">
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5">
           {NATIVE_PANELS.map((p) => (
             <RailButton
@@ -513,8 +494,6 @@ export function PanelHost({
             onSelect={handleSelect}
             refreshKey={refreshKey}
             socket={socket}
-            createReq={agentCreateReq}
-            onCreateHandled={() => setAgentCreateReq(null)}
           />
         )}
         <FilesPanel
@@ -524,13 +503,10 @@ export function PanelHost({
           onOpenSide={onOpenSide}
           onOpenTerminal={onOpenTerminal}
           onOpenGit={onOpenGit}
-          onCreateAgentAt={createAgentAt}
-          createParentId={createParentId}
           refreshKey={refreshKey}
           onChanged={onChanged}
         />
         {activePanelId === "sites" && <SitesPanel onOpenUrl={onOpenUrl} socket={socket} />}
-        {activePanelId === "skills" && <SkillsPanel onOpenSkill={onOpenSkill} />}
         {activePanelId === "apps" && (
           <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} onCreate={createAppWithAI} />
         )}

@@ -1,4 +1,4 @@
-import type { Settings, Node } from "../../api";
+import type { Settings, SkillInfo, Node } from "../../api";
 import { TabBar } from "./TabBar";
 import { TabContent } from "./TabContent";
 import { isTerminalTab, isWebTab, type TabActions, type WorkspaceGroupState } from "./types";
@@ -13,18 +13,15 @@ export type TabContentProps = {
   socket: Socket;
   drafts: Record<string, string>;
   fileRefreshKeys: Record<string, number>;
-  pendingGoto: { id: string; line: number } | null;
   gitRefreshKey: number;
   onFileChange: (id: string, value: string) => void;
   onFileSaved: (id: string) => void;
   onSelect: (n: Node) => void;
-  onOpenAgent?: (id: string) => void;
+  onOpenSkill: (skill: SkillInfo) => void;
   onOpenSettings: () => void;
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
   onOpenGitDiff: (root: string, path: string, staged?: boolean, commit?: string) => void;
-  /** 常驻层要用:开网页标签。 */
-  onOpenUrl: (url: string, title?: string) => void;
 };
 
 const activeTabOf = (group: WorkspaceGroupState) =>

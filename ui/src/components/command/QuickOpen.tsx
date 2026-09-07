@@ -20,7 +20,7 @@ export function QuickOpen({
     // 只列可打开的(对话 + 文件);空间只在树里展开,不开标签。
     // 对话已不在树上,单独拉会话列表并入
     Promise.all([
-      api.listAllNodes().then((r) => (r.nodes || []).filter((n) => n.kind === "file")).catch(() => [] as Node[]),
+      api.listAllNodes().then((r) => (r.items || []).filter((n) => n.kind === "file")).catch(() => [] as Node[]),
       api.listChats().then((r) => r.chats).catch(() => [] as Node[]),
     ]).then(([files, chats]) => setAll([...chats, ...files]));
     inputRef.current?.focus();

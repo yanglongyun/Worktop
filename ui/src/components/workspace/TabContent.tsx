@@ -1,10 +1,11 @@
-import type { Settings, Node } from "../../api";
+import { SkillDocumentPanel } from "./panels/SkillDocumentPanel";
+import type { Settings, SkillInfo, Node } from "../../api";
 import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
 import { WidgetsManager } from "../widgets/WidgetsManager";
-import { AppPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, SkillPanel, TaskPanel } from "./panels";
-import { isAppTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isSkillTab, isTaskTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
+import { AppPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, TaskPanel } from "./panels";
+import { isAppTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isTaskTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -17,12 +18,11 @@ export function TabContent({
   socket,
   drafts,
   fileRefreshKeys,
-  pendingGoto,
   gitRefreshKey,
   onFileChange,
   onFileSaved,
   onSelect,
-  onOpenAgent,
+  onOpenSkill,
   onOpenNav,
   onOpenSettings,
   onSettingsSaved,
@@ -34,12 +34,11 @@ export function TabContent({
   socket: Socket;
   drafts: Record<string, string>;
   fileRefreshKeys: Record<string, number>;
-  pendingGoto: { id: string; line: number } | null;
   gitRefreshKey: number;
   onFileChange: (id: string, value: string) => void;
   onFileSaved: (id: string) => void;
   onSelect: (n: Node) => void;
-  onOpenAgent?: (id: string) => void;
+  onOpenSkill: (skill: SkillInfo) => void;
   onOpenNav?: () => void;
   onOpenSettings: () => void;
   onSettingsSaved?: (settings: Settings) => void;
@@ -71,8 +70,10 @@ export function TabContent({
   }
 
   if (isSettingsTab(tab)) {
-    return <SettingsPanel onSaved={onSettingsSaved} />;
+    return <SettingsPanel onSaved={onSettingsSaved} onOpenSkill={onOpenSkill} />;
   }
+
+  if (tab.kind === "skill") return <SkillDocumentPanel key={tab.id} skill={tab.skill} />;
 
   if (isAppTab(tab)) {
     return <AppPanel tab={tab} socket={socket} />;
@@ -82,17 +83,13 @@ export function TabContent({
     return <TaskPanel tab={tab} socket={socket} />;
   }
 
-  if (isSkillTab(tab)) {
-    return <SkillPanel tab={tab} />;
-  }
-
   if (isWidgetsTab(tab)) {
     return (
       <WidgetsManager />
     );
   }
 
-  if (isNodeTab(tab) && tab.kind === "chat") {
+  if (tab.kind === "chat-start" || (isNodeTab(tab) && tab.kind === "chat")) {
     return (
       <ChatPanel
         key={tab.id}
@@ -101,6 +98,9 @@ export function TabContent({
         socket={socket}
         onOpenNav={onOpenNav}
         onOpenSettings={onOpenSettings}
+        onCreated={(node, prompt, attachments) => window.dispatchEvent(new CustomEvent("worktop:chat-created", {
+          detail: { tabId: tab.id, groupId, node, prompt, attachments },
+        }))}
       />
     );
   }
@@ -112,7 +112,6 @@ export function TabContent({
         node={tab}
         draft={drafts[tab.id]}
         refreshKey={fileRefreshKeys[tab.id] || 0}
-        gotoLine={pendingGoto?.id === tab.id ? pendingGoto.line : undefined}
         onChange={(value) => onFileChange(tab.id, value)}
         onSaved={() => onFileSaved(tab.id)}
       />

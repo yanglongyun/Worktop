@@ -4,11 +4,6 @@ import { PersistentPanelLayer } from "./PersistentPanelLayer";
 import { WorkspaceGroup, type TabContentProps } from "./WorkspaceGroup";
 import type { TabActions, WebTab, WorkspaceGroupState } from "./types";
 
-type Socket = {
-  send: (m: any) => void;
-  on: (t: string, fn: (p: any) => void) => () => void;
-};
-
 const SPLIT_STORAGE_KEY = "worktop.workspaceSplitPercent";
 const MIN_GROUP_WIDTH = 260;
 
@@ -221,7 +216,6 @@ export function WorkspaceLayout({
         onUpdateWebTab={onUpdateWebTab}
         onCloseTab={tabs.close}
         onFocusGroup={tabs.focusGroup}
-        onOpenUrl={content.onOpenUrl}
       />
     </div>
   );

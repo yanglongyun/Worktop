@@ -17,7 +17,7 @@ export const ROOT_ID = "__root__";
 
 // 树的拖拽:sensors + 目标目录判定 + 落库,全部内聚在此。
 //
-// 文件树没有手工排序(磁盘目录按名列出,move 的 position 服务端直接忽略),
+// 文件树没有手工排序(磁盘目录按名列出),
 // 所以这里不存在 before/after 插入线 —— 拖拽唯一的语义是「搬进某个文件夹」:
 //   - 悬停文件夹 = 搬进它;悬停文件 = 搬进它所在的文件夹;
 //   - 目标目录整行亮起(.drop-target);目标就是拖拽物当前所在目录 → 不亮、放下也不动;
@@ -68,7 +68,7 @@ export function useTreeDnd({
     } catch (e: any) {
       if (/已有同名/.test(e?.message || "")) {
         if (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" })) {
-          await api.moveNode(sourceId, dirId, undefined, true);
+          await api.moveNode(sourceId, dirId, true);
         }
       } else throw e;
     }

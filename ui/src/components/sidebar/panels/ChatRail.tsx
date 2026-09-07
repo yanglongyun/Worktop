@@ -4,35 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import type { Node } from "../../../api";
 import { api } from "../../../api";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Copy, Folder, FolderOpen, MoreVertical, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { relativeTime, toggleChatRowField, useChatRowFields, type ChatRowFields } from "../../../lib/chatRows";
+import { PanelEmptyState } from "./PanelEmptyState";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
-
-/** 目录短形:家目录换 ~,只留最后两级 —— 侧栏放不下全路径,尾部才是有信息量的那头。 */
-const shortDir = (path: string) => {
-  const parts = path.replace(/\/+$/, "").split("/").filter(Boolean);
-  const tail = parts.slice(-2).join("/");
-  return parts.length > 2 ? `…/${tail}` : `/${tail}`;
-};
-
-const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示工作目录" : "在文件管理器中显示工作目录";
 
 export function ChatRail({
   selectedId,
   onSelect,
   refreshKey,
   socket,
-  createReq,
-  onCreateHandled,
 }: {
   selectedId: string;
   onSelect: (n: Node) => void;
   refreshKey: number;
   socket: Socket;
-  /** 外部(文件夹右键)发起的「在此新建」请求:带预设 workdir。 */
-  createReq: { workdir?: string } | null;
-  onCreateHandled: () => void;
 }) {
   const [agents, setAgents] = useState<Node[]>([]);
   const [running, setRunning] = useState<Set<string>>(new Set());
@@ -44,7 +31,6 @@ export function ChatRail({
   // 存成 items 快照的话勾了也不动(菜单是打开那一刻算的)
   const [fieldsMenuAt, setFieldsMenuAt] = useState<{ x: number; y: number } | null>(null);
   const fieldsMenuItems: MenuItem[] = ([
-    ["dir", "所在目录"],
     ["last", "最后一条消息"],
     ["time", "时间"],
   ] as [keyof ChatRowFields, string][]).map(([key, label]) => ({
@@ -71,20 +57,10 @@ export function ChatRail({
     return () => { clearInterval(timer); offs.forEach((f) => f()); };
   }, [socket]);
 
-  // 新建 = 直接开聊:落一条「未命名对话」并打开,名字是系统的事 ——
-  // 首条消息跑完后服务端自动取名(runs 层独立补全调用)
-  const createNow = async (workdir?: string) => {
-    const result = await api.createChat({ title: "", workdir });
-    onSelect(result.node);
-    load();
+  // 起始页不落库,首条消息发送后才会出现在会话列表里。
+  const createNow = () => {
+    window.dispatchEvent(new Event("worktop:new-chat"));
   };
-
-  // 外部请求(顶部 + / 文件夹右键「在此新建对话」)
-  useEffect(() => {
-    if (!createReq) return;
-    onCreateHandled();
-    void createNow(createReq.workdir);
-  }, [createReq]);
 
   const commitRename = async () => {
     const id = renamingId;
@@ -105,13 +81,10 @@ export function ChatRail({
           icon: agent.pinned ? <PinOff size={13} /> : <Pin size={13} className="text-accent" />,
           onClick: async () => { await api.updateChat(agent.id, { pinned: !agent.pinned }); load(); } },
         { label: "重命名", icon: <Pencil size={13} />, onClick: () => { setRenamingId(agent.id); setRenameDraft(agent.title); } },
-        { label: "复制 ID", icon: <Copy size={13} />,
-          onClick: () => { navigator.clipboard.writeText(agent.id).catch(() => {}); } },
-        { label: REVEAL_LABEL, icon: <FolderOpen size={13} />, onClick: () => { api.revealNode(agent.id).catch(() => {}); } },
         "divider",
         { label: "删除", icon: <Trash2 size={13} />, danger: true,
           onClick: async () => {
-            if (!(await dialog.confirm(`删除对话「${agent.title}」?\n全部消息记录会一并删除;工作目录里的文件不受影响。`, { danger: true, confirmText: "删除" }))) return;
+            if (!(await dialog.confirm(`删除对话「${agent.title}」?\n全部消息记录会一并删除。`, { danger: true, confirmText: "删除" }))) return;
             await api.deleteChat(agent.id);
             load();
           } },
@@ -156,12 +129,6 @@ export function ChatRail({
                 </span>
               )}
             </div>
-            {fields.dir && agent.workdir && (
-              <div className="flex items-center gap-1 mt-px text-[11px] text-text-faint font-mono">
-                <Folder size={10} className="shrink-0" />
-                <span className="truncate">{shortDir(agent.workdir)}</span>
-              </div>
-            )}
             {fields.last && agent.last && (
               <div className="mt-px truncate text-[11.5px] text-text-faint">
                 <span className="text-text-dim">{agent.last.role === "user" ? "我" : "助手"}:</span>{" "}
@@ -203,7 +170,7 @@ export function ChatRail({
           </div>
         </div>
       )}
-      <div className="flex-1 min-h-0 overflow-y-auto py-1">
+      <div className="flex-1 min-h-0 overflow-y-auto">
       {pinned.length > 0 && (<>
         <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-text-faint select-none">置顶</div>
         {pinned.map(row)}
@@ -227,22 +194,16 @@ export function ChatRail({
         {recent.map(row)}
       </>)}
 
-      </div>
-
       {agents.length === 0 && (
-        <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-          <div className="text-3xl opacity-80">🌱</div>
-          <div className="text-[13px] text-text-faint leading-relaxed">
-还没有对话
-          </div>
-          <button
-            onClick={() => void createNow()}
-            className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
-          >
-            <Plus size={13} /> 新建对话
-          </button>
-        </div>
+        <PanelEmptyState
+          title="还没有对话"
+          description="新建一个对话,让 AI 帮你读写文件、执行任务。"
+          action="新建对话"
+          icon={<Plus size={13} />}
+          onAction={() => void createNow()}
+        />
       )}
+      </div>
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
       {fieldsMenuAt && (

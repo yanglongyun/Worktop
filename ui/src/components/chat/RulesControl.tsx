@@ -9,7 +9,7 @@ import { permissionApi, type Rule } from "../../lib/permission";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { Switch } from "../ui";
 
-export function RulesControl({ on, onChange }: { on: boolean; onChange: (next: boolean) => void }) {
+export function RulesControl({ on, onChange, quiet = false }: { on: boolean; onChange: (next: boolean) => void; quiet?: boolean }) {
   const [open, setOpen] = useState(false);
   const [rules, setRules] = useState<Rule[]>([]);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -114,7 +114,7 @@ export function RulesControl({ on, onChange }: { on: boolean; onChange: (next: b
         title="规则:写给助手的要求,会进提示词"
         className={[
           "inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[12.5px] transition-colors",
-          on ? "text-accent bg-accent/10 hover:bg-accent/[0.16]" : "text-text-faint hover:text-text-dim hover:bg-bg-hover",
+          on && !quiet ? "text-accent bg-accent/10 hover:bg-accent/[0.16]" : "text-text-faint hover:text-text-dim hover:bg-bg-hover",
         ].join(" ")}
       >
         <Icon size={14} />

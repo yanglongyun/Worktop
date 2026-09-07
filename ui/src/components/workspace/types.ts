@@ -1,10 +1,10 @@
-import type { Node } from "../../api";
+import type { Node, SkillInfo } from "../../api";
 
-export const TERMINAL_TAB_PREFIX = "__terminal__";
-export const GIT_TAB_PREFIX = "__git__";
-export const GIT_DIFF_TAB_PREFIX = "__git_diff__";
-export const SETTINGS_TAB_ID = "__settings__";
-export const WIDGETS_TAB_ID = "__widgets__";
+const TERMINAL_TAB_PREFIX = "__terminal__";
+const GIT_TAB_PREFIX = "__git__";
+const GIT_DIFF_TAB_PREFIX = "__git_diff__";
+const SETTINGS_TAB_ID = "__settings__";
+const WIDGETS_TAB_ID = "__widgets__";
 
 export type TerminalTab = {
   id: string;
@@ -46,17 +46,8 @@ export type WidgetsTab = {
   title: "组件";
 };
 
-export const TASK_TAB_PREFIX = "__task__";
-export const SKILL_TAB_PREFIX = "__skill__";
-
-/** 技能详情:渲染 ~/.worktop/skills/<id>/SKILL.md。 */
-export type SkillTab = {
-  id: string;
-  kind: "skill";
-  title: string;
-  skillId: string;
-};
-export const APP_TAB_PREFIX = "__app__";
+const TASK_TAB_PREFIX = "__task__";
+const APP_TAB_PREFIX = "__app__";
 
 /** 应用标签:一个 iframe 指向 app 自己的 origin(每个 app 一个真端口)。
  *  地址不存在这里 —— 端口每次启动都变,打开时现向宿主取。 */
@@ -67,7 +58,24 @@ export type AppTab = {
   appId: string;
 };
 
-export const LAUNCHER_TAB_PREFIX = "__launcher__";
+const LAUNCHER_TAB_PREFIX = "__launcher__";
+
+/** 仅在界面存在的起始页,首条消息发送时才成为数据库里的对话。 */
+export type ChatStartTab = {
+  id: string;
+  kind: "chat-start";
+  title: string;
+  initialPrompt?: string;
+  sendOnOpen?: boolean;
+};
+
+export const chatStartTab = (initialPrompt?: string, sendOnOpen = false): ChatStartTab => ({
+  id: `__chat_start__:${crypto.randomUUID()}`,
+  kind: "chat-start",
+  title: "新对话",
+  initialPrompt,
+  sendOnOpen,
+});
 
 /** 新标签页:一个全能输入框 —— 输入文字开对话,输入网址开网站;就地转身成目标标签。 */
 export type LauncherTab = {
@@ -76,7 +84,7 @@ export type LauncherTab = {
   title: string;
 };
 
-export const WEB_TAB_PREFIX = "__web__";
+const WEB_TAB_PREFIX = "__web__";
 
 /** 网页标签:Electron 壳里的 <webview>,常驻挂载(卸载 = 断网重载,登录态全丢)。 */
 export type WebTab = {
@@ -104,7 +112,13 @@ export type TaskTab = {
   taskId: string;
 };
 
-export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab | SkillTab;
+export type SkillTab = { id: string; kind: "skill"; title: string; skill: SkillInfo };
+
+export const skillTab = (skill: SkillInfo): SkillTab => ({
+  id: `__skill__:${skill.id}`, kind: "skill", title: `${skill.name} · SKILL.md`, skill,
+});
+
+export type WorkspaceTab = Node | ChatStartTab | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab | SkillTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -158,13 +172,6 @@ export const settingsTab = (): SettingsTab => ({
   id: SETTINGS_TAB_ID,
   kind: "settings",
   title: "设置",
-});
-
-export const skillTab = (skillId: string, title: string): SkillTab => ({
-  id: `${SKILL_TAB_PREFIX}:${skillId}`,
-  kind: "skill",
-  title,
-  skillId,
 });
 
 export const taskTab = (taskId: string, title: string): TaskTab => ({
@@ -221,9 +228,6 @@ export const isWidgetsTab = (tab: WorkspaceTab | null | undefined): tab is Widge
 export const isTaskTab = (tab: WorkspaceTab | null | undefined): tab is TaskTab =>
   tab?.kind === "task";
 
-export const isSkillTab = (tab: WorkspaceTab | null | undefined): tab is SkillTab =>
-  tab?.kind === "skill";
-
 export const isAppTab = (tab: WorkspaceTab | null | undefined): tab is AppTab =>
   tab?.kind === "app";
 
@@ -234,8 +238,7 @@ export const isWebTab = (tab: WorkspaceTab | null | undefined): tab is WebTab =>
   tab?.kind === "web";
 
 export const isNodeTab = (tab: WorkspaceTab | null | undefined): tab is Node =>
-  !!tab && tab.kind !== "terminal" && tab.kind !== "git" && tab.kind !== "git-diff" && tab.kind !== "settings"
-  && tab.kind !== "widgets" && tab.kind !== "app" && tab.kind !== "web" && tab.kind !== "launcher";
+  !!tab && (tab.kind === "chat" || tab.kind === "file" || tab.kind === "space");
 
 export const isOpenableSpace = (node: Node | null | undefined): node is Node =>
   !!node && node.kind !== "space";

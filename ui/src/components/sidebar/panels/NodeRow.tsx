@@ -5,6 +5,8 @@ import { ChevronRight, Folder, FileText, Bot, FileCode, FileJson, Image, Hash, F
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 export type TreeControls = {
+  /** 菜单遮罩会结束 CSS hover,菜单打开期间仍标明操作对象。 */
+  contextMenuId: string | null;
   expandedIds: Set<string>;
   toggleExpand: (id: string) => void;
   setExpanded: (id: string, on: boolean) => void;
@@ -24,8 +26,6 @@ export type TreeControls = {
   // dnd-kit:当前拖拽物 id + 将被落入的目标目录 id(该目录整行亮起)
   activeId: string | null;
   overDirId: string | null;
-  /** 文件夹徽标:workdir → 绑定的对话数(「谁住在这」的可见性,污染归零后的替代) */
-  agentDirs: Map<string, number>;
   /** 多选集(Cmd 点选 / Shift 范围选,VS Code 资源管理器同款);高亮与单选同款。 */
   multiSelectedIds: Set<string>;
   /** 剪切标记:进了剪贴板等待移动的行,半透明提示。 */
@@ -107,7 +107,7 @@ export function NodeRow({
   const loadChildren = useCallback(async () => {
     if (!isContainer) return;
     const result = await api.listChildren(node.id);
-    setChildren(result.nodes || []);
+    setChildren(result.items || []);
     setLoaded(true);
   }, [node.id, isContainer]);
 
@@ -143,7 +143,7 @@ export function NodeRow({
         onContextMenu={(e) => onContextMenu(e, node)}
         className={[
           "group relative flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer select-none text-text touch-none",
-          isSelected && !isRenaming ? "bg-bg-inset" : "hover:bg-bg-hover",
+          isSelected && !isRenaming ? "bg-bg-inset" : controls.contextMenuId === node.id ? "bg-bg-hover" : "hover:bg-bg-hover",
           isDragging ? "opacity-40" : "",
           controls.cutIds.has(node.id) ? "opacity-50" : "", // 剪切待移动
           isDropTarget ? "drop-target" : "",
@@ -191,15 +191,6 @@ export function NodeRow({
 
         {badge && <span className={`shrink-0 text-[11px] font-semibold ${badge.color}`}>{badge.letter}</span>}
         {dirDirty && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-warning/70" title="目录内有未提交变更" />}
-
-        {isContainer && (controls.agentDirs.get(node.id) || 0) > 0 && (
-          <span
-            className="shrink-0 inline-flex items-center gap-0.5 text-[11px] text-warning/80"
-            title={`${controls.agentDirs.get(node.id)} 个对话绑定此目录`}
-          >
-            <Bot size={11} />{controls.agentDirs.get(node.id)}
-          </span>
-        )}
 
         {/* 更多操作:桌面 hover / 移动端常驻。快速点弹菜单,不与按住拖拽冲突 */}
         <button

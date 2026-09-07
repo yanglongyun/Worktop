@@ -1,5 +1,7 @@
+import { request, jsonBody } from "./lib/http";
+
 // 统一的一个 item:kind 区分它是空间 / 对话 / 文件。
-// 文件夹和文件在文件树上;对话是会话(住 SQLite),只通过 workdir 绑定一个目录。
+// 文件夹和文件在文件树上;对话独立保存在 SQLite。
 export type Node = {
   id: string;
   parent_id: string | null;                                      // 所在空间(根 = null;agent 恒为 null)
@@ -7,10 +9,8 @@ export type Node = {
   title: string;
   system: string | null;                                         // 仅 agent:人格
   content: string | null;                                        // 仅 file:内容
-  position: number | null;
   last_read_at: string | null;                                   // 仅 agent
   created_at: string;
-  workdir?: string;                                              // 仅 agent:绑定的工作目录
   updated_at?: string;                                           // 仅 agent:最后活动时间
   /** 仅 agent:最后一句人话(跳过思考/工具),会话列表的预览行用。 */
   last?: { role: "user" | "assistant"; text: string; at: string } | null;
@@ -22,9 +22,6 @@ export type Node = {
   tooLarge?: boolean;                                            // 仅 file:超过文本预览上限
   workspace?: boolean;                                           // node 且 parent_id=null 时表示工作区 root
 };
-
-export type SearchMatch = { line: number; text: string };
-export type SearchResult = { id: string; title: string; matches: SearchMatch[] };
 
 /** 侧栏「网站」页收藏的链接。 */
 /** 应用:manifest 的事实 + 运行时状态。 */
@@ -128,15 +125,6 @@ export type Settings = {
 };
 
 
-export type WorkspaceRoot = {
-  id: string;
-  title: string;
-  path: string;
-  enabled: number;
-  created_at: string;
-  last_opened_at: string | null;
-};
-
 export type GitFileStatus = {
   path: string;
   absPath: string;
@@ -167,60 +155,39 @@ export type GitBranches = {
   branches: string[];
 };
 
-const request = async <T>(path: string, opts: RequestInit = {}) => {
-  const res = await fetch(path, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as any).error || `${res.status}`);
-  return data as T;
-};
-
-const jsonBody = (body: any): RequestInit => ({
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body),
-});
-
-// 后端返回 { item } / { items },这里统一映射成 { node } / { nodes } 供组件沿用
-const one = (d: any) => ({ node: d.item as Node });
-const many = (d: any) => ({ nodes: (d.items || []) as Node[] });
-
 export const api = {
-  health: () => request<{ ok: boolean }>("/health"),
 
-  listRoots: () => request<{ items: Node[] }>("/api/tree?parentId=").then(many),
+  listRoots: () => request<{ items: Node[] }>("/api/tree?parentId="),
   listChildren: (parentId: string) =>
-    request<{ items: Node[] }>(`/api/tree?parentId=${encodeURIComponent(parentId)}`).then(many),
-  listAllNodes: () => request<{ items: Node[] }>("/api/tree/all").then(many),
-  searchContent: (q: string) =>
-    request<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`),
+    request<{ items: Node[] }>(`/api/tree?parentId=${encodeURIComponent(parentId)}`),
+  listAllNodes: () => request<{ items: Node[] }>("/api/tree/all"),
   getNode: (id: string) =>
-    request<{ item: Node }>(`/api/tree/get?id=${encodeURIComponent(id)}`).then(one),
+    request<{ item: Node }>(`/api/tree/get?id=${encodeURIComponent(id)}`),
   createNode: (opts: { kind: "space" | "file"; title: string; parentId?: string; content?: string }) =>
-    request<{ item: Node }>("/api/tree", { method: "POST", ...jsonBody(opts) }).then(one),
+    request<{ item: Node }>("/api/tree", { method: "POST", ...jsonBody(opts) }),
   updateNode: (id: string, patch: { title?: string; content?: string; parentId?: string | null; overwrite?: boolean }) =>
-    request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }).then(one),
-  moveNode: (id: string, newParentId: string | null, position?: number, overwrite?: boolean) =>
-    request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody({ parentId: newParentId, position, overwrite }) }).then(one),
+    request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }),
+  moveNode: (id: string, newParentId: string | null, overwrite?: boolean) =>
+    request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody({ parentId: newParentId, overwrite }) }),
   copyNode: (id: string, parentId?: string | null) =>
-    request<{ item: Node }>("/api/tree/copy", { method: "POST", ...jsonBody({ id, parentId }) }).then(one),
+    request<{ item: Node }>("/api/tree/copy", { method: "POST", ...jsonBody({ id, parentId }) }),
   importFile: (opts: { parentId?: string | null; relPath: string; dataBase64: string }) =>
-    request<{ item: Node }>("/api/tree/import", { method: "POST", ...jsonBody(opts) }).then(one),
+    request<{ item: Node }>("/api/tree/import", { method: "POST", ...jsonBody(opts) }),
   deleteNode: (id: string) =>
     request<{ ok: boolean }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
-  ancestry: (id: string) =>
-    request<{ ancestry: Node[] }>(`/api/ancestry?id=${encodeURIComponent(id)}`),
 
   // ── 对话(会话列表)──
-  listChats: () => request<{ chats: Node[] }>("/api/chats").then((d) => ({ chats: (d.chats || []) as Node[] })),
+  listChats: () => request<{ chats: Node[] }>("/api/chats"),
   getChat: (id: string) =>
-    request<{ item: Node }>(`/api/chats/get?id=${encodeURIComponent(id)}`).then(one),
-  createChat: (opts: { title: string; workdir?: string; system?: string }) =>
-    request<{ item: Node }>("/api/chats", { method: "POST", ...jsonBody(opts) }).then(one),
-  updateChat: (id: string, patch: { title?: string; system?: string; workdir?: string; pinned?: boolean }) =>
-    request<{ item: Node }>(`/api/chats?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }).then(one),
+    request<{ item: Node }>(`/api/chats/get?id=${encodeURIComponent(id)}`),
+  createChat: (opts: { title: string; system?: string }) =>
+    request<{ item: Node }>("/api/chats", { method: "POST", ...jsonBody(opts) }),
+  updateChat: (id: string, patch: { title?: string; system?: string; pinned?: boolean }) =>
+    request<{ item: Node }>(`/api/chats?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }),
   deleteChat: (id: string) =>
     request<{ ok: boolean }>(`/api/chats?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
   markAgentRead: (id: string) =>
-    request<{ item: Node }>(`/api/chats/read?id=${encodeURIComponent(id)}`, { method: "POST" }).then(one),
+    request<{ item: Node }>(`/api/chats/read?id=${encodeURIComponent(id)}`, { method: "POST" }),
 
   // ── 附件上传 ──
   uploadFile: (opts: { name: string; mimeType: string; dataBase64: string }) =>
@@ -267,8 +234,6 @@ export const api = {
     request<{ ok: boolean }>("/api/apps/stop", { method: "POST", ...jsonBody({ id }) }),
   restartApp: (id: string) =>
     request<{ ok: boolean }>("/api/apps/restart", { method: "POST", ...jsonBody({ id }) }),
-  appLogs: (id: string) =>
-    request<{ logs: { stream: string; line: string; at: string }[] }>(`/api/apps/logs?id=${encodeURIComponent(id)}`).then((r) => r.logs || []),
 
   // ── 网站收藏(原生「网站」面板)──
   listSites: () => request<{ sites: Site[] }>("/api/sites").then((r) => r.sites || []),
@@ -296,13 +261,11 @@ export const api = {
     request<{ item: Site }>(`/api/sites?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(body) }).then((r) => r.item),
   removeSite: (id: string) =>
     request<{ deleted: boolean }>(`/api/sites?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
-
-  listWorkspaces: () => request<{ workspaces: WorkspaceRoot[] }>("/api/workspaces"),
   pickWorkspaceDirectory: () => request<{ path: string | null }>("/api/workspaces/pick", { method: "POST" }),
   addWorkspace: (opts: { path: string; title?: string }) =>
-    request<{ item: Node }>("/api/workspaces", { method: "POST", ...jsonBody(opts) }).then(one),
+    request<{ item: Node }>("/api/workspaces", { method: "POST", ...jsonBody(opts) }),
   removeWorkspace: (id: string) =>
-    request<{ ok: boolean; workspace: WorkspaceRoot | null }>(`/api/workspaces?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+    request<{ ok: boolean }>(`/api/workspaces?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   listMessages: (chatId: string) =>
     request<{ rows: MessageRow[] }>(`/api/messages?chatId=${encodeURIComponent(chatId)}`),
@@ -312,8 +275,6 @@ export const api = {
   gitStatus: () => request<{ repositories: GitRepositoryStatus[] }>("/api/git/status"),
   gitRepository: (path: string) =>
     request<{ repository: GitRepositoryStatus | null }>(`/api/git/repository?path=${encodeURIComponent(path)}`),
-  gitDiff: (opts: { root: string; path: string; staged?: boolean }) =>
-    request<{ diff: string }>(`/api/git/diff?root=${encodeURIComponent(opts.root)}&path=${encodeURIComponent(opts.path)}${opts.staged ? "&staged=1" : ""}`),
   /** merge 视图用的两份完整内容(unstaged = 暂存区 vs 工作树;staged = HEAD vs 暂存区)。 */
   gitFilePair: (opts: { root: string; path: string; staged?: boolean; commit?: string }) =>
     request<{ before: string; after: string; binary: boolean }>(`/api/git/file-pair?root=${encodeURIComponent(opts.root)}&path=${encodeURIComponent(opts.path)}${opts.staged ? "&staged=1" : ""}${opts.commit ? `&commit=${encodeURIComponent(opts.commit)}` : ""}`),
@@ -336,12 +297,13 @@ export const api = {
     request<{ output: string; repository: GitRepositoryStatus }>("/api/git/remote", { method: "POST", ...jsonBody(opts) }),
   gitCheckout: (opts: { root: string; branch: string }) =>
     request<{ output: string; repository: GitRepositoryStatus; branches: GitBranches }>("/api/git/checkout", { method: "POST", ...jsonBody(opts) }),
-  gitInit: (opts: { workspacePath: string }) =>
-    request<{ output: string; repository: GitRepositoryStatus }>("/api/git/init", { method: "POST", ...jsonBody(opts) }),
 
   getSettings: () => request<{ settings: Settings }>("/api/settings"),
-  saveSettings: (s: Settings) =>
-    request<{ settings: Settings }>("/api/settings", { method: "POST", ...jsonBody(s) }),
+  saveSettings: (s: Partial<Settings>) =>
+    request<{ settings: Settings }>("/api/settings", { method: "POST", ...jsonBody(s) }).then((result) => {
+      window.dispatchEvent(new Event("worktop:settings-saved"));
+      return result;
+    }),
 
 
   // 在系统文件管理器(Finder / 资源管理器)里显示该节点

@@ -3,13 +3,14 @@ import type { GitRepositoryStatus, Node } from "../../../api";
 import { api } from "../../../api";
 import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "./NodeRow";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste, Plus } from "lucide-react";
+import { Folder, FolderPlus, FolderOpen, FileText, Trash2, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste, Plus } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
 import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import { useTreeDnd, ROOT_ID } from "./useTreeDnd";
 import { AddWorkspaceDialog } from "./AddWorkspaceDialog";
+import { PanelEmptyState } from "./PanelEmptyState";
 
 // 文件面板:真实文件系统的树。多选/键盘/剪贴板/拖拽/Git 染色/筛选都内聚在此;
 // 宿主(PanelHost)只负责装卸与显隐 —— 本面板常驻挂载,展开集/多选等重状态跨切换保活。
@@ -20,8 +21,6 @@ export function FilesPanel({
   onOpenSide,
   onOpenTerminal,
   onOpenGit,
-  onCreateAgentAt,
-  createParentId,
   refreshKey,
   onChanged,
 }: {
@@ -32,15 +31,10 @@ export function FilesPanel({
   onOpenSide?: (n: Node) => void;
   onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
   onOpenGit?: (repo: GitRepositoryStatus) => void;
-  /** 文件夹右键「在此新建对话」→ 宿主切到会话面板并带上预设 workdir。 */
-  onCreateAgentAt: (workdir: string) => void;
-  createParentId?: string | null;
   refreshKey: number;
   onChanged?: () => void;
 }) {
   const [roots, setRoots] = useState<Node[]>([]);
-  // 文件夹徽标:workdir → 绑定的对话数
-  const [agentDirs, setAgentDirs] = useState<Map<string, number>>(new Map());
   const [addWorkspaceOpen, setAddWorkspaceOpen] = useState(false);
   const [workspacePathDraft, setWorkspacePathDraft] = useState("");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
@@ -111,11 +105,11 @@ export function FilesPanel({
   const [renameDraft, setRenameDraft] = useState("");
 
   // 菜单
-  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[]; nodeId?: string } | null>(null);
 
   const load = useCallback(async () => {
     const result = await api.listRoots();
-    setRoots(result.nodes || []);
+    setRoots(result.items || []);
   }, []);
 
   // 变更后:既刷新根,又冒泡到 App 让 refreshKey 自增 → 所有展开的子节点立即重载
@@ -146,7 +140,7 @@ export function FilesPanel({
     if (!ids.length) return;
     const workspaces = ids.filter((id) => rootsRef.current.some((r) => r.id === id && r.workspace));
     const normal = ids.filter((id) => !workspaces.includes(id));
-    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是工作区:只从工作区列表移除,不删磁盘文件。` : "";
+    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是已添加的文件夹:只从列表移除,不删磁盘文件。` : "";
     const label = rawIds.length === 1
       ? `「${nodesRef.current.get(rawIds[0])?.title || rawIds[0].split("/").pop()}」`
       : `选中的 ${rawIds.length} 项`;
@@ -182,7 +176,7 @@ export function FilesPanel({
         try { await api.moveNode(id, targetDir); }
         catch (e: any) {
           if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。是否覆盖?被覆盖的文件将移入废纸篓。`, { danger: true, confirmText: "覆盖" }))) {
-            await api.moveNode(id, targetDir, undefined, true).catch((err: any) => void dialog.alert(err?.message || "移动失败"));
+            await api.moveNode(id, targetDir, true).catch((err: any) => void dialog.alert(err?.message || "移动失败"));
           } else if (!/已有同名/.test(e?.message || "")) void dialog.alert(e?.message || "移动失败");
         }
       } else {
@@ -382,47 +376,6 @@ export function FilesPanel({
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
-  // 文件夹徽标数据(会话 tab 有自己的列表,这里只为树上的角标)
-  useEffect(() => {
-    api.listChats().then((r) => {
-      const map = new Map<string, number>();
-      for (const a of r.chats) {
-        if (!a.workdir) continue;
-        map.set(a.workdir, (map.get(a.workdir) || 0) + 1);
-      }
-      setAgentDirs(map);
-    }).catch(() => {});
-  }, [refreshKey]);
-
-  // 聊天面板的工作目录芯片 → 展开定位那个目录(切到文件面板由宿主做)
-  useEffect(() => {
-    const onReveal = (e: Event) => {
-      const abs = String((e as CustomEvent).detail?.path || "");
-      if (!abs) return;
-      const root = roots.map((r) => r.id).filter((r) => abs === r || abs.startsWith(r + "/")).sort((a, b) => b.length - a.length)[0];
-      if (!root) return;
-      // 展开根到目标的每一级
-      setExpandedIds((current) => {
-        const next = new Set(current);
-        let cursor = root;
-        next.add(root);
-        const rest = abs.slice(root.length).split("/").filter(Boolean);
-        for (const seg of rest) { cursor = `${cursor}/${seg}`; next.add(cursor); }
-        return next;
-      });
-      // 各级子行是懒加载的,轮询等目标行出现再滚过去
-      let tries = 0;
-      const timer = setInterval(() => {
-        tries += 1;
-        const el = document.querySelector(`[data-nid="${CSS.escape(abs)}"]`);
-        if (el) { el.scrollIntoView({ block: "center" }); clearInterval(timer); }
-        else if (tries > 12) clearInterval(timer);
-      }, 120);
-    };
-    window.addEventListener("worktop:reveal-path", onReveal);
-    return () => window.removeEventListener("worktop:reveal-path", onReveal);
-  }, [roots]);
-
   useEffect(() => {
     const nextIds = roots.filter((root) => root.workspace && !autoExpandedWorkspaces.current.has(root.id)).map((root) => root.id);
     if (!nextIds.length) return;
@@ -449,7 +402,7 @@ export function FilesPanel({
     const result = await api.createNode({ kind: creatingKind, title, parentId });
     setCreatingUnder(null);
     setDraftTitle("");
-    handleSelect(result.node);
+    handleSelect(result.item);
     refresh();
   };
   const cancelCreate = () => { setCreatingUnder(null); setDraftTitle(""); };
@@ -472,13 +425,13 @@ export function FilesPanel({
     setWorkspaceError(null);
     try {
       const result = await api.addWorkspace({ path: workspacePath });
-      setExpanded(result.node.id, true);
-      handleSelect(result.node);
+      setExpanded(result.item.id, true);
+      handleSelect(result.item);
       setAddWorkspaceOpen(false);
       setWorkspacePathDraft("");
       refresh();
     } catch (e: any) {
-      setWorkspaceError(e.message || "添加工作区失败");
+      setWorkspaceError(e.message || "添加文件夹失败");
     } finally {
       setAddingWorkspace(false);
     }
@@ -528,13 +481,14 @@ export function FilesPanel({
       if (multiSel.has(node.id)) {
         const count = multiSel.size;
         setMenu({
+          nodeId: node.id,
           x: e.clientX, y: e.clientY,
           items: [
             { label: `复制(${count} 项)`, icon: <Copy size={13} />, onClick: () => copySelection(false) },
             { label: `剪切(${count} 项)`, icon: <Scissors size={13} />, onClick: () => copySelection(true) },
             { label: `复制路径(${count} 项)`, icon: <Copy size={13} />,
               onClick: async () => {
-                const text = [...multiSel].map((id) => id.replace(/^.*\/workspaces\//, "")).join("\n");
+                const text = [...multiSel].join("\n");
                 try { await navigator.clipboard.writeText(text); } catch { /* 剪贴板不可用就算了 */ }
               } },
             "divider",
@@ -559,9 +513,6 @@ export function FilesPanel({
     }
     if (node.kind === "space") {
       items.push(
-        { label: "在此新建对话", icon: <Bot size={13} className="text-warning" />,
-          onClick: () => onCreateAgentAt(node.id) },
-        "divider",
         { label: "新建文件夹", icon: <Folder size={13} className="text-accent" />,
           onClick: () => startCreate(node.id, "space") },
         { label: "新建文件", icon: <FileText size={13} className="text-text-faint" />,
@@ -569,7 +520,7 @@ export function FilesPanel({
         "divider",
       );
     }
-    const copyText = node.id.replace(/^.*\/workspaces\//, "");
+    const copyText = node.id;
     if (node.kind !== "space" && onOpenSide) {
       items.push(
         { label: "打开到侧边", icon: <PanelRight size={13} />, onClick: () => onOpenSide(node) },
@@ -623,10 +574,10 @@ export function FilesPanel({
       );
     }
     items.push(
-      { label: node.workspace ? "移除工作区" : "删除", icon: <Trash2 size={13} />, danger: true,
+      { label: node.workspace ? "移除文件夹" : "删除", icon: <Trash2 size={13} />, danger: true,
         onClick: async () => {
           if (node.workspace) {
-            if (!(await dialog.confirm(`移除工作区「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
+            if (!(await dialog.confirm(`移除文件夹「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
             await api.removeWorkspace(node.id);
           } else {
             if (!(await dialog.confirm(`删除「${node.title}」?${node.kind === "space" ? "\n里面所有内容也会一起删除。" : ""}`, { danger: true, confirmText: "删除" }))) return;
@@ -637,7 +588,7 @@ export function FilesPanel({
         },
       },
     );
-    setMenu({ x: e.clientX, y: e.clientY, items });
+    setMenu({ x: e.clientX, y: e.clientY, items, nodeId: node.id });
   };
 
   const onBlankContext = (e: React.MouseEvent) => {
@@ -645,7 +596,7 @@ export function FilesPanel({
     setMenu({
       x: e.clientX, y: e.clientY,
       items: [
-        { label: "添加工作区", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddWorkspace },
+        { label: "添加文件夹", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddWorkspace },
       ],
     });
   };
@@ -658,11 +609,11 @@ export function FilesPanel({
   keyApiRef.current = { handleSelect, startRename, toggleExpand, setExpanded };
 
   const controls: TreeControls = {
+    contextMenuId: menu?.nodeId ?? null,
     expandedIds, toggleExpand, setExpanded,
     creatingUnder, creatingKind, draftTitle, setDraftTitle, commitCreate, cancelCreate,
     renamingId, renameDraft, setRenameDraft, commitRename, cancelRename,
     activeId: activeNode?.id || null, overDirId,
-    agentDirs,
     multiSelectedIds: multiSel,
     cutIds,
     registerNode,
@@ -672,7 +623,7 @@ export function FilesPanel({
     <DndContext sensors={sensors} {...dndHandlers}>
       {/* 身体:未激活仅隐藏 —— 展开集/多选/键盘锚点等重状态跨面板切换保活 */}
       <div className={active ? "flex flex-col flex-1 min-h-0" : "hidden"}>
-        {/* 面板内部的入口:添加工作区(样式同对话面板的「新建对话」);一个都没有时由下面的空状态承担 */}
+        {/* 面板内部的入口:添加文件夹(样式同对话面板的「新建对话」);一个都没有时由下面的空状态承担 */}
         {roots.length > 0 && (
           <div className="shrink-0 py-1 border-b border-border">
             <div
@@ -680,7 +631,7 @@ export function FilesPanel({
               className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
             >
               <Plus size={14} className="shrink-0" />
-              <span className="text-[13.5px]">添加工作区</span>
+              <span className="text-[13.5px]">添加文件夹</span>
             </div>
           </div>
         )}
@@ -688,18 +639,15 @@ export function FilesPanel({
         <RootDroppable onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
           {creatingUnder === "" && <InlineCreateRow depth={0} controls={controls} />}
 
-          {/* 默认一个工作区都没有:说清楚,给唯一的入口 —— 添加工作区 */}
+          {/* 默认一个工作区都没有:说清楚,给唯一的入口 —— 添加文件夹 */}
           {!roots.length && creatingUnder !== "" && (
-            <div className="px-4 py-10 flex flex-col items-center text-center">
-              <div className="text-[13px] text-text-dim">还没有工作区</div>
-              <div className="mt-1 text-[11.5px] text-text-faint leading-relaxed">把要一起干活的文件夹添加为工作区,可以加多个,会记住。</div>
-              <button
-                onClick={openAddWorkspace}
-                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
-              >
-                <FolderPlus size={13} /> 添加工作区
-              </button>
-            </div>
+            <PanelEmptyState
+              title="还没有添加文件夹"
+              description="添加常用文件夹，在这里浏览和编辑文件。"
+              action="添加文件夹"
+              icon={<FolderPlus size={13} />}
+              onAction={openAddWorkspace}
+            />
           )}
 
           {roots.map((node) => (
@@ -717,7 +665,7 @@ export function FilesPanel({
         </RootDroppable>
       </div>
 
-      {/* 菜单与对话框放隐藏容器之外:面板未激活时(如命令面板发起「添加工作区」)也可见 */}
+      {/* 菜单与对话框放隐藏容器之外:面板未激活时(如命令面板发起「添加文件夹」)也可见 */}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
         {addWorkspaceOpen && (
           <AddWorkspaceDialog

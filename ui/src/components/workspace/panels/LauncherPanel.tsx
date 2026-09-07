@@ -6,7 +6,6 @@ import { Bot, Globe, Terminal } from "lucide-react";
 import { api, type AppInfo, type HistoryEntry, type Node } from "../../../api";
 import { Favicon } from "../../ui";
 import type { LauncherTab, WorkspaceGroupId } from "../types";
-import { getSearchEngine } from "../../../lib/search";
 
 type Mode = "chat" | "web" | "term";
 const MODE_KEY = "worktop.launcher.mode";
@@ -127,9 +126,7 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
             />
             <span className="shrink-0 text-[11px] rounded px-1.5 py-0.5 select-none text-text-faint bg-bg-inset whitespace-nowrap">{current.hint}</span>
           </div>
-          <div className="text-center text-[12px] text-text-faint mt-2">
-            {mode === "chat" ? "对话开在当前选中的目录里" : mode === "web" ? `github.com → 打开 · 其它 → ${getSearchEngine().name} 搜索` : "终端开在当前选中的目录里"} · Tab 切换模式
-          </div>
+
         </div>
 
         {/* 最近对话 */}
@@ -141,7 +138,7 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
                 <span className="shrink-0 text-[14px] leading-none">💬</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-medium text-text leading-[18px]">{c.title || "未命名对话"}</span>
-                  <span className="block truncate text-[11.5px] text-text-faint leading-[16px]">{c.last?.text ? plainPreview(c.last.text) : c.workdir || ""}</span>
+                  <span className="block truncate text-[11.5px] text-text-faint leading-[16px]">{c.last?.text ? plainPreview(c.last.text) : ""}</span>
                 </span>
               </button>
             ))}
