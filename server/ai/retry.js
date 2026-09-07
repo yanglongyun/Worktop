@@ -61,7 +61,7 @@ const RETRYABLE_TEXT = pattern([
 /** 明确可以重试的 HTTP 状态码。其余 4xx 一律终态。 */
 const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 524]);
 
-export const DEFAULT_RETRY = Object.freeze({
+const DEFAULT_RETRY = Object.freeze({
     enabled: true,
     maxRetries: 3,
     baseDelayMs: 1_000,

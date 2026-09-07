@@ -24,7 +24,7 @@ type Attachment = {
 
 const ROOT = join(DATA_HOME, "files");
 
-export const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = 8 * 1024 * 1024;
 const MAX_PER_MESSAGE = 10;
 const MAX_LIVE_TOOL_IMAGES = 2;
 

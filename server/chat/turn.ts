@@ -12,8 +12,9 @@ import { complete } from "../ai/complete.js";
 import { runAgent as runAi } from "../agent/index.js";
 import { EVENTS } from "../shared/events.js";
 import { createRunner, tools } from "../agent/tools.js";
+import { executionDirectory, outputDirectory } from "../agent/paths.js";
 import { buildSystem } from "./system.js";
-import { DEFAULT_TITLE, getChat, resolveWorkdir, updateChat } from "./chats.js";
+import { DEFAULT_TITLE, getChat, updateChat } from "./chats.js";
 import { appendItem, latestUsage, listRows } from "./messages.js";
 import { createCompaction, getLatestCompaction } from "./compactions.js";
 import { getSettings } from "../settings.js";
@@ -166,12 +167,13 @@ const runChat = async (chatId) => {
   const ledger = createLedger(chatId, rows);
 
   try {
-    const cwd = resolveWorkdir(chat);
+    const cwd = executionDirectory();
     const ctx = {
       selfChatId: chatId,
       chatId,        // confirm 要用它把提醒卡投到这段对话里
       signal,        // 整轮被停时,悬着的提醒卡跟着收掉
       cwd,
+      outputDir: outputDirectory(chatId),
       emit,
       toolResultMaxChars: Number(settings.toolResultMaxChars) || 30000,
     };

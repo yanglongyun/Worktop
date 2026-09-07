@@ -17,8 +17,7 @@ const initDb = () => {
   db.exec("PRAGMA foreign_keys = ON");
 
   db.exec(`
-    -- 结构(空间/文件/对话)全在文件系统:workspaces/ 下
-    --   目录 = 空间,真实文件 = 文件;对话绑定(而不是住在)一个真实文件夹。
+    -- 文件树展示真实目录和文件;对话独立保存在数据库。
     -- SQLite 只存:消息流、设置、收藏。**运行状态不落库** ——
     --   跑到一半的轮次重启后本就恢复不了,而发生过什么已经逐条记在 messages 里。
 
@@ -28,7 +27,6 @@ const initDb = () => {
       origin_app   TEXT,
       title        TEXT NOT NULL,
       system       TEXT,
-      workdir      TEXT NOT NULL,
       pinned       INTEGER NOT NULL DEFAULT 0,
       last_read_at TEXT,
       created_at   TEXT NOT NULL DEFAULT (datetime('now')),

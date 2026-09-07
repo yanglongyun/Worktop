@@ -5,6 +5,7 @@
 //     读日志用 read/tail 日志文件,停止用 bash kill。dev server 一类命令即使忘了
 //     background 也会被自动识别转后台,别让模型卡死自己。
 import { spawn } from "child_process";
+import { executionDirectory } from "../paths.js";
 import { existsSync } from "fs";
 import { getProcess, looksLongRunning, startProcess } from "../../terminals/jobs.js";
 
@@ -38,7 +39,7 @@ export const bashDef = {
   type: "function",
   name: "bash",
   description:
-    "在你的工作目录里执行 shell 命令。会结束的命令(git/build/ls/grep/装依赖)直接跑并返回输出;" +
+    "执行本机 shell 命令,默认从用户主目录开始;可用 cwd 指定本次目录。会结束的命令(git/build/ls/grep/装依赖)直接跑并返回输出;" +
     "长驻进程(dev server/watch/serve)必须 background:true —— 立即返回进程 id、pid 和日志文件路径,不阻塞;" +
     "之后用 read 读日志文件、用 kill <pid> 停止。读写单个文件优先用 read/edit/write(更省 token)。",
   parameters: {
@@ -46,6 +47,7 @@ export const bashDef = {
     properties: {
       summary: { type: "string", description: "一句话说明这次执行的目的(界面会显示)" },
       command: { type: "string", description: "要执行的命令" },
+      cwd: { type: "string", description: "可选:本次命令执行目录,支持绝对路径或 ~/;每次调用独立,不会改变之后调用的位置" },
       background: { type: "boolean", description: "可选:true 时作为后台进程启动(dev server 等长驻命令必须)" },
     },
     required: ["summary", "command"],
@@ -53,13 +55,15 @@ export const bashDef = {
   },
 };
 
-export const bash = async ({ command, summary, background }, ctx) => {
+export const bash = async ({ command, summary, background, cwd: requestedCwd }, ctx) => {
   const cmd = String(command || "").trim();
   if (!cmd) return "error: command 不能为空";
 
+  const cwd = executionDirectory(requestedCwd || ctx.cwd);
+
   // 显式 background,或看起来就是长驻命令(模型常忘) → 进程注册表,立即返回
   if (background || looksLongRunning(cmd)) {
-    const proc = startProcess({ command: cmd, cwd: ctx.cwd, reason: summary || "" });
+    const proc = startProcess({ command: cmd, cwd, reason: summary || "" });
     await wait(1200);
     return formatProcess(
       getProcess(proc.id),
@@ -69,7 +73,7 @@ export const bash = async ({ command, summary, background }, ctx) => {
 
   return new Promise((resolve) => {
     const child = spawn(resolveShell(), ["-lc", cmd], {
-      cwd: ctx.cwd && existsSync(ctx.cwd) ? ctx.cwd : process.cwd(),
+      cwd,
       env: process.env,
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],

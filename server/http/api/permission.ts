@@ -3,17 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { listApprovals, respondApproval } from "../../chat/approvals.js";
 import { createRule, deleteRule, listRules, reorderRules, updateRule } from "../../chat/rules.js";
 
-const json = (res: ServerResponse, status: number, body: unknown) => {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(body));
-};
-
-const readBody = async (req: IncomingMessage): Promise<any> => {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
-  if (!chunks.length) return {};
-  try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { return {}; }
-};
+import { json, parseBody } from "./helpers.js";
 
 export const handlePermissionRoutes = async (
   req: IncomingMessage,
@@ -28,14 +18,14 @@ export const handlePermissionRoutes = async (
     return true;
   }
   if (p === "/api/rules" && method === "POST") {
-    const body = await readBody(req);
+    const body = await parseBody(req);
     const text = String(body.text || "").trim();
     if (!text) { json(res, 400, { error: "内容为空" }); return true; }
     json(res, 201, { rule: createRule(text) });
     return true;
   }
   if (p === "/api/rules" && method === "PATCH") {
-    const body = await readBody(req);
+    const body = await parseBody(req);
     const id = String(url.searchParams.get("id") || body.id || "");
     const patch: { text?: string; enabled?: boolean } = {};
     if (typeof body.text === "string") {
@@ -51,7 +41,7 @@ export const handlePermissionRoutes = async (
   }
   // 重排:整份顺序一次发过来,服务端照单重写 position
   if (p === "/api/rules/order" && method === "POST") {
-    const body = await readBody(req);
+    const body = await parseBody(req);
     json(res, 200, { rules: reorderRules(body.ids) });
     return true;
   }
@@ -66,7 +56,7 @@ export const handlePermissionRoutes = async (
     return true;
   }
   if (p === "/api/approvals" && method === "POST") {
-    const body = await readBody(req);
+    const body = await parseBody(req);
     json(res, 200, { ok: respondApproval(String(body.id), String(body.answer)) });
     return true;
   }

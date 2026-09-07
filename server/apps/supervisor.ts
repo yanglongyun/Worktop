@@ -258,7 +258,6 @@ export const ensureApp = async (id: string): Promise<Record_> => {
 
 export const restartApp = async (id: string) => { await stopApp(id, "idle"); return ensureApp(id); };
 export const touchApp = (id: string) => { const r = records.get(id); if (r) r.lastUsed = Date.now(); };
-export const appLogs = (id: string) => records.get(id)?.logs || [];
 
 export const appStatus = (id: string) => {
   const app = getApp(id);

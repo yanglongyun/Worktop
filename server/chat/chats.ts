@@ -1,11 +1,9 @@
 // @ts-nocheck
-// 对话 = 一条 SQLite 记录 + 一个绑定的真实文件夹(workdir)。
+// 对话与消息保存在 SQLite,与文件浏览和执行路径独立。
 // 对话住 SQLite,不落进用户的资产目录 —— 它是过程,不是用户的文件。
-// uuid 稳定寻址(messages / compactions 都按它),workdir 只是一条可改的数据。
+// uuid 稳定寻址(messages / compactions 都按它)。
 import { randomUUID } from "crypto";
-import fs from "fs";
 import { getDb } from "../db.js";
-import { defaultDir } from "../workspace/tree.js";
 
 // 新对话默认叫这个;首条消息跑完后由 runs 层请模型取正式名字
 const DEFAULT_TITLE = "未命名对话";
@@ -20,8 +18,6 @@ const toNode = (row) => row && ({
   title: row.title,
   system: row.system ?? null,
   content: null,
-  position: null,
-  workdir: row.workdir,
   pinned: !!row.pinned,
   last_read_at: row.last_read_at ?? null,
   created_at: row.created_at,
@@ -79,21 +75,19 @@ const lastMessages = (ids) => {
   return out;
 };
 
-const createChat = ({ title, system = null, workdir, originApp = null } = {}) => {
+const createChat = ({ title, system = null, originApp = null } = {}) => {
   const id = randomUUID();
-  const home = String(workdir || "").trim() || defaultDir();
   getDb().prepare(`
-    INSERT INTO chats (id, origin_app, title, system, workdir) VALUES (?, ?, ?, ?, ?)
+    INSERT INTO chats (id, origin_app, title, system) VALUES (?, ?, ?, ?)
   `).run(id, originApp == null ? null : String(originApp),
-    String(title || DEFAULT_TITLE).trim() || DEFAULT_TITLE, system == null ? null : String(system), home);
+    String(title || DEFAULT_TITLE).trim() || DEFAULT_TITLE, system == null ? null : String(system));
   return getChat(id);
 };
 
-const updateChat = (id, { title, system, workdir, pinned } = {}) => {
+const updateChat = (id, { title, system, pinned } = {}) => {
   const db = getDb();
   if (title !== undefined) db.prepare("UPDATE chats SET title = ? WHERE id = ?").run(String(title || "").trim() || DEFAULT_TITLE, String(id));
   if (system !== undefined) db.prepare("UPDATE chats SET system = ? WHERE id = ?").run(system == null ? null : String(system), String(id));
-  if (workdir !== undefined) db.prepare("UPDATE chats SET workdir = ? WHERE id = ?").run(String(workdir), String(id));
   if (pinned !== undefined) db.prepare("UPDATE chats SET pinned = ? WHERE id = ?").run(pinned ? 1 : 0, String(id));
   return getChat(id);
 };
@@ -135,15 +129,8 @@ const unreadMap = (ids) => {
   return map;
 };
 
-/** 运行时的家:workdir 没了(被删/盘未挂载)就退回第一个工作区(没有就是主目录),任务不至于无处落脚。 */
-const resolveWorkdir = (chat) => {
-  const dir = chat?.workdir || "";
-  try { if (dir && fs.statSync(dir).isDirectory()) return dir; } catch { /* fallthrough */ }
-  return defaultDir();
-};
-
 export {
   DEFAULT_TITLE,
   listChats, getChat, createChat, updateChat, deleteChat,
-  markRead, touchChat, unreadMap, lastMessages, resolveWorkdir,
+  markRead, touchChat, unreadMap, lastMessages,
 };

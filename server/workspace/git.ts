@@ -154,38 +154,6 @@ const ensureRelativePath = (filePath) => {
   return value;
 };
 
-const syntheticUntrackedDiff = (repoRoot, filePath) => {
-  const abs = path.join(repoRoot, filePath);
-  let content = "";
-  try { content = fs.readFileSync(abs, "utf8"); } catch {}
-  const lines = content.split(/\r?\n/);
-  if (lines[lines.length - 1] === "") lines.pop();
-  const body = lines.map((line) => `+${line}`).join("\n");
-  return [
-    `diff --git a/${filePath} b/${filePath}`,
-    "new file mode 100644",
-    "index 0000000..0000000",
-    "--- /dev/null",
-    `+++ b/${filePath}`,
-    `@@ -0,0 +1,${Math.max(lines.length, 1)} @@`,
-    body || "+",
-  ].join("\n");
-};
-
-const gitDiff = ({ root, filePath, staged = false }) => {
-  const repo = repoByRoot(root);
-  const file = ensureRelativePath(filePath);
-  const status = repo.files.find((item) => item.path === file);
-  if (status?.status === "untracked" && !staged) return syntheticUntrackedDiff(repo.root, file);
-  const args = staged
-    ? ["diff", "--cached", "--", file]
-    : ["diff", "--", file];
-  const diff = runGit(repo.root, args, { allowError: true });
-  if (diff) return diff;
-  if (status?.staged) return runGit(repo.root, ["diff", "--cached", "--", file], { allowError: true });
-  return "";
-};
-
 // 两份完整内容(merge 视图用):unstaged 比「暂存区 vs 工作树」,staged 比「HEAD vs 暂存区」。
 // 新文件/未跟踪 → before 为空;删除 → after 为空;含 \0 视为二进制,不出文本。
 const gitFilePair = ({ root, filePath, staged = false, commit = "" }) => {
@@ -321,24 +289,14 @@ const gitCheckout = ({ root, branch }) => {
   return { output, repository, branches: gitBranches(repository.root) };
 };
 
-const gitInit = ({ workspacePath }) => {
-  const pathValue = String(workspacePath || "");
-  const workspace = listWorkspaces().find((item) => item.path === pathValue);
-  if (!workspace) throw new Error("workspace not found");
-  const output = runGitMutation(workspace.path, ["init"]);
-  return { output, repository: getRepositoryStatus(workspace) };
-};
-
 export {
   gitBranches,
   gitLog,
   gitShow,
   gitCheckout,
   gitCommit,
-  gitDiff,
   gitFilePair,
   gitDiscard,
-  gitInit,
   gitRemoteAction,
   gitStage,
   gitUnstage,

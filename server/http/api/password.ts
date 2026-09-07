@@ -2,25 +2,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as passwords from "../../sites/passwords.js";
 
-const json = (res: ServerResponse, status: number, body: unknown) => {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(body));
-};
-const readBody = (req: IncomingMessage) =>
-  new Promise<any>((resolve) => {
-    let raw = "";
-    req.on("data", (c) => { raw += c; });
-    req.on("end", () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); } });
-  });
+import { json, parseBody } from "./helpers.js";
 
 export const handlePasswordRoutes = async (req: IncomingMessage, res: ServerResponse, url: URL, method: string) => {
   const p = url.pathname;
   if (!p.startsWith("/api/passwords")) return false;
   try {
     if (p === "/api/passwords" && method === "GET") { json(res, 200, { ok: true, passwords: passwords.list() }); return true; }
-    if (p === "/api/passwords" && method === "POST") { json(res, 201, { ok: true, item: passwords.create(await readBody(req)) }); return true; }
+    if (p === "/api/passwords" && method === "POST") { json(res, 201, { ok: true, item: passwords.create(await parseBody(req)) }); return true; }
     if (p === "/api/passwords" && method === "PATCH") {
-      json(res, 200, { ok: true, item: passwords.update(String(url.searchParams.get("id") || ""), await readBody(req)) }); return true;
+      json(res, 200, { ok: true, item: passwords.update(String(url.searchParams.get("id") || ""), await parseBody(req)) }); return true;
     }
     if (p === "/api/passwords" && method === "DELETE") {
       if (url.searchParams.get("all") === "1") { json(res, 200, { ok: true, cleared: passwords.clear() }); return true; }
@@ -33,7 +24,7 @@ export const handlePasswordRoutes = async (req: IncomingMessage, res: ServerResp
       res.end(JSON.stringify({ ok: true, password })); return true;
     }
     if (p === "/api/passwords/import" && method === "POST") {
-      const body = await readBody(req);
+      const body = await parseBody(req);
       json(res, 200, { ok: true, added: passwords.importMany(body.items) }); return true;
     }
     if (p === "/api/passwords/export" && method === "GET") {

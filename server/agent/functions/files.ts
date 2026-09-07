@@ -1,6 +1,6 @@
 // @ts-nocheck
 // 文件三件套:read(有界读,带行号,图片交给模型看)/ edit(精确替换)/ write(带护栏写)。
-// 相对路径相对对话的工作目录(ctx.cwd)解析,和 bash 一致。
+// 相对路径从本轮默认起点解析;绝对路径和 ~/ 可直接定位本地文件。
 //
 // 正确性口径(与 AGENT 0.0.7 对齐):
 //   - read/edit 统一按 LF 匹配,写回还原原始行尾 —— CRLF 文件的多行替换不再必败;
@@ -8,30 +8,27 @@
 //     当替换模式解释而静默写错文件;
 //   - read 的行数不把尾随换行切出的空串算作一行。
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "fs";
-import { dirname, extname, isAbsolute, resolve } from "path";
+import { dirname, extname } from "path";
+import { resolveLocalPath } from "../paths.js";
 
 const IMAGE_TYPES = new Map([
   [".png", "image/png"], [".jpg", "image/jpeg"], [".jpeg", "image/jpeg"],
   [".gif", "image/gif"], [".webp", "image/webp"],
 ]);
 
-const resolvePath = (p, ctx) => {
-  const rel = String(p || "");
-  if (!rel) return ctx?.cwd || process.cwd();
-  return isAbsolute(rel) ? rel : resolve(ctx?.cwd || process.cwd(), rel);
-};
+const resolvePath = (value, ctx) => resolveLocalPath(String(value || ""), ctx?.cwd);
 
 export const readDef = {
   type: "function",
   name: "read",
   description:
     "读取一个文本文件,返回带行号的内容(便于随后用 edit 精确定位)。大文件用 offset/limit 分页。" +
-    "相对路径相对你的工作目录。",
+    "支持绝对路径与 ~/;相对路径从本轮默认起点解析。",
   parameters: {
     type: "object",
     properties: {
       summary: { type: "string", description: "一句话说明为什么读(界面会显示)" },
-      path: { type: "string", description: "文件路径(相对你的目录或绝对路径)" },
+      path: { type: "string", description: "文件路径(绝对路径、~/ 或相对路径)" },
       offset: { type: "number", description: "可选:从第几行开始读(1 起)" },
       limit: { type: "number", description: "可选:读多少行(默认 2000,上限 2000)" },
     },

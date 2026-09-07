@@ -3,8 +3,7 @@
 //   目录     = 空间(space)—— 唯一会无限自嵌套的容器
 //   真实文件 = 文件(file)—— 内容就是文件内容
 //
-// 对话不在这棵树上:对话是过程,不是用户的资产,住 SQLite(repo/chats.ts),
-// 只通过 workdir 绑定到某个目录。目录改名/移动/删除时,这里负责把绑定跟着搬家。
+// 对话单独保存在 SQLite;文件夹改名、移动、删除不影响对话。
 // id 规则:space / file = 绝对路径(改名/移动即变,前端重拉,无需 fs↔DB 同步)。
 
 import { createHash } from "crypto";
@@ -42,7 +41,7 @@ const workspaceRows = () => {
   return enabledRows;
 };
 const workspacePaths = () => workspaceRows().map((r) => r.path);
-/** 没指定去处时的落脚点:第一个工作区;一个都没有就退回主目录(对话/终端总得有个真实目录)。 */
+/** 文件树操作的默认位置:第一个已添加文件夹,没有则使用主目录。 */
 const defaultDir = () => workspacePaths()[0] || os.homedir();
 const rootOf = (abs) => {
   const full = normalizeAbs(abs);
@@ -78,28 +77,13 @@ const statCreatedAt = (abs) => {
   catch { return null; }
 };
 
-// ── 目录变动时给对话搬家:workdir 是路径数据,路径变了数据要跟上 ──
-// 改名/移动 = 前缀替换;删除 = 塌缩到父目录(家没了,但对话不能跟着蒸发)。
-const reprefixAgents = (oldDir, newDir) => {
-  const from = withSep(normalizeAbs(oldDir));
-  const db = getDb();
-  db.prepare("UPDATE chats SET workdir = ? WHERE workdir = ?").run(normalizeAbs(newDir), normalizeAbs(oldDir));
-  db.prepare("UPDATE chats SET workdir = ? || substr(workdir, ?) WHERE substr(workdir, 1, ?) = ?")
-    .run(withSep(normalizeAbs(newDir)), from.length + 1, from.length, from);
-};
-const collapseAgents = (dir, target) => {
-  const from = withSep(normalizeAbs(dir));
-  getDb().prepare("UPDATE chats SET workdir = ? WHERE workdir = ? OR substr(workdir, 1, ?) = ?")
-    .run(normalizeAbs(target), normalizeAbs(dir), from.length, from);
-};
-
 // ── 构造统一 item ──
 const spaceItem = (abs) => {
   const full = normalizeAbs(abs);
   const ws = isWorkspaceRoot(full) ? workspaceForPath(full) : null;
   return {
     id: full, parent_id: parentAbsOf(full), kind: "space",
-    title: ws?.title || path.basename(full), system: null, content: null, position: null, last_read_at: null, created_at: null,
+    title: ws?.title || path.basename(full), system: null, content: null, last_read_at: null, created_at: null,
     workspace: !!ws,
   };
 };
@@ -107,7 +91,7 @@ const MAX_TEXT = 2_000_000;
 const fileItem = (abs, withContent = false) => {
   const node = {
     id: abs, parent_id: parentAbsOf(abs), kind: "file",
-    title: path.basename(abs), system: null, content: null, position: null, last_read_at: null, created_at: null,
+    title: path.basename(abs), system: null, content: null, last_read_at: null, created_at: null,
     size: 0, binary: false, tooLarge: false,
   };
   if (!withContent) return node;
@@ -146,38 +130,6 @@ const parseSkill = (content, fallbackName) => {
   return { name, description };
 };
 
-// 对话上下文:只看对话「自己所在的那个文件夹」—— 同级的 AGENTS.md / CLAUDE.md(指令)
-// 和 skills/<名>/SKILL.md(可用技能)。不向上继承、不向下穿透:作用范围仅同级。
-// 这些都只是树里的文件,放哪个文件夹就只对那个文件夹里的对话生效。
-const CONTEXT_DOC_NAMES = ["AGENTS.md", "CLAUDE.md"];
-const agentContext = (startDir) => {
-  const dir = normalizeAbs(startDir);
-  if (!isAllowedPath(dir)) return { docs: [], skills: [] };
-  const docs = [], skills = [];
-  for (const nm of CONTEXT_DOC_NAMES) {
-    const p = path.join(dir, nm);
-    try {
-      if (fs.statSync(p).isFile()) {
-        const full = fs.readFileSync(p, "utf8");
-        const content = full.length > 6000 ? full.slice(0, 6000) + `\n\n[……此文件共 ${full.length} 字,这里只给了前 6000 字;需要全文就 read ${nm}]` : full;
-        docs.push({ name: nm, rel: nm, content });
-      }
-    } catch {}
-  }
-  const skillsDir = path.join(dir, "skills");
-  try {
-    for (const e of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-      if (!e.isDirectory() || isHidden(e.name)) continue;
-      const sp = path.join(skillsDir, e.name, "SKILL.md");
-      try {
-        const meta = parseSkill(fs.readFileSync(sp, "utf8"), e.name);
-        skills.push({ ...meta, rel: path.join("skills", e.name, "SKILL.md") });
-      } catch {}
-    }
-  } catch {}
-  return { docs, skills };
-};
-
 // 递归列出整棵树所有节点(给 ⌘P 快速打开用),跳过 IGNORE_DIRS / 包 / 隐藏。不读文件内容。
 // 这是同步遍历,跑在主线程上:工作区一大(桌面下几个仓库)就是几十万项、几分钟,
 // 期间整个服务端对谁都不应答。所以封顶 —— 筛选够用就行,不追求全量。
@@ -213,20 +165,12 @@ const locate = (id) => {
   return { kind: st.isDirectory() ? "space" : "file", abs };
 };
 
-const terminalCwd = (id) => {
-  if (!id) return defaultDir();
-  const hit = locate(id);
-  if (hit) return hit.kind === "space" ? hit.abs : path.dirname(hit.abs);
-  return defaultDir();
-};
-
 // ════════════════ 公开 API(统一树 facade)════════════════
 
 const listChildren = (parentId) => {
   let dirAbs;
   if (!parentId) {
     const out = workspaceRows().map((row) => spaceItem(row.path));
-    out.forEach((n, i) => { n.position = i + 1; });
     return out;
   }
   else {
@@ -245,7 +189,6 @@ const listChildren = (parentId) => {
   // 排序:普通文件管理器规则 —— 文件夹在前,同类按名(不给任何文件特权)
   const rank = (n) => (n.kind === "space" ? 1 : 2);
   out.sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
-  out.forEach((n, i) => { n.position = i + 1; });
   return out;
 };
 
@@ -256,7 +199,7 @@ const getItem = (id) => {
   return fileItem(hit.abs, true);
 };
 
-const createItem = ({ kind, parentId = null, title, system = null, content = null }) => {
+const createItem = ({ kind, parentId = null, title, content = null }) => {
   let parentDir;
   if (parentId) {
     const hit = locate(parentId);
@@ -277,7 +220,7 @@ const createItem = ({ kind, parentId = null, title, system = null, content = nul
   throw new Error(`未知类型: ${kind}`);
 };
 
-const updateItem = (id, { title, system, content, overwrite = false } = {}) => {
+const updateItem = (id, { title, content, overwrite = false } = {}) => {
   const hit = locate(id);
   if (!hit) throw new Error(`not found: ${id}`);
 
@@ -304,11 +247,11 @@ const updateItem = (id, { title, system, content, overwrite = false } = {}) => {
     }
     return fileItem(abs, true);
   }
-  // space:改名 = 目录改名;住在子树上的对话跟着搬家
+  // space:改名 = 目录改名
   let abs = hit.abs;
   if (title !== undefined) {
     const next = path.join(path.dirname(abs), sanitize(title));
-    if (next !== abs) { renameGuard(next); fs.renameSync(abs, next); reprefixAgents(abs, next); abs = next; }
+    if (next !== abs) { renameGuard(next); fs.renameSync(abs, next); abs = next; }
   }
   return spaceItem(abs);
 };
@@ -337,11 +280,8 @@ const deleteItem = (id) => {
   const hit = locate(id);
   if (!hit) return;
   if (hit.kind === "file") { trashItem(hit.abs); return; }
-  if (isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能删除,请从 Worktop 移除工作区");
-  // space:整目录进废纸篓;绑在这棵子树上的对话**不陪葬**——对话不是目录的附属品,
-  // 它们的 workdir 塌缩到父目录,会话照常留在会话列表里
+  if (isWorkspaceRoot(hit.abs)) throw new Error("请从文件面板移除这个文件夹");
   trashItem(hit.abs);
-  collapseAgents(hit.abs, path.dirname(hit.abs));
 };
 
 /** 目标目录里找一个不冲突的名字:name → name copy → name copy 2 …(带扩展名的插在扩展名前)。 */
@@ -376,9 +316,9 @@ const copyItem = (id, targetParentId = null) => {
   return hit.kind === "space" ? spaceItem(dest) : fileItem(dest, true);
 };
 
-// 移到某空间下(newParentId 必须是空间或 null=根)。position 忽略(按名排序)。
+// 移到某空间下(newParentId 必须是空间或 null=根)。
 // 目标已有同名:默认报错,overwrite=true 时把旧的送进废纸篓再落位(不静默覆盖)。
-const moveItem = (id, newParentId, _position = undefined, overwrite = false) => {
+const moveItem = (id, newParentId, overwrite = false) => {
   const hit = locate(id);
   if (!hit) throw new Error(`not found: ${id}`);
   if (hit.kind === "space" && isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能移动");
@@ -399,7 +339,6 @@ const moveItem = (id, newParentId, _position = undefined, overwrite = false) => 
       trashItem(next);
     }
     fs.renameSync(hit.abs, next);
-    if (hit.kind === "space") reprefixAgents(hit.abs, next); // 子树上的对话跟着搬家
   }
   if (hit.kind === "space") return spaceItem(next);
   return fileItem(next, true);
@@ -420,18 +359,6 @@ const importFile = ({ parentId = null, relPath, dataBase64 }) => {
   const dest = uniqueDest(dir, rel[rel.length - 1]);
   fs.writeFileSync(dest, Buffer.from(String(dataBase64 || ""), "base64"));
   return fileItem(dest, true);
-};
-
-const ancestry = (id) => {
-  const chain = [];
-  let cur = getItem(id);
-  const seen = new Set();
-  while (cur && !seen.has(cur.id)) {
-    seen.add(cur.id);
-    chain.unshift(cur);
-    cur = cur.parent_id != null ? getItem(cur.parent_id) : null;
-  }
-  return chain;
 };
 
 const addWorkspace = ({ path: rawPath, title } = {}) => {
@@ -457,7 +384,6 @@ const removeWorkspace = (idOrPath) => {
   const rows = workspaceRows();
   const row = rows.find((r) => r.id === key || r.path === normalizeAbs(key));
   if (!row) return null;
-  if (rows.length <= 1) throw new Error("至少保留一个工作区");
   getDb().prepare("UPDATE workspaces SET enabled = 0 WHERE id = ?").run(row.id);
   return row;
 };
@@ -465,8 +391,8 @@ const removeWorkspace = (idOrPath) => {
 const listWorkspaces = () => workspaceRows();
 
 export {
-  productHome, defaultDir, IGNORE_DIRS, isBundle, isAllowedPath, parseSkill,
-  listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, importFile, ancestry,
-  resolveFileAbs, pathForId, agentContext,
-  listWorkspaces, addWorkspace, removeWorkspace, terminalCwd,
+  productHome, IGNORE_DIRS, parseSkill,
+  listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, importFile,
+  resolveFileAbs, pathForId,
+  listWorkspaces, addWorkspace, removeWorkspace,
 };

@@ -1,11 +1,10 @@
-// 文件树与工作区:树的增删改查、复制、导入、祖先链、全树列表、内容搜索、原始文件流、
+// 文件树与工作区:树的增删改查、复制、导入、全树列表、原始文件流、
 // 按路径服务工作区文件(HTML 预览)、在系统文件管理器里显示。
 import fs from "node:fs";
 import nodePath from "node:path";
 import { execFile } from "node:child_process";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as tree from "../../workspace/treeService.js";
-import * as chats from "../../chat/chatsService.js";
 import { pickDirectory } from "../../workspace/directoryPicker.js";
 import { syncWatchers } from "../../workspace/watcher.js";
 import { attempt, json, parseBody, serveFile } from "./helpers.js";
@@ -39,9 +38,6 @@ export const handleWorkspaceRoutes = async (req: IncomingMessage, res: ServerRes
   }
   // 全树扁平列表(⌘P 快速打开)
   if (path === "/api/tree/all" && method === "GET") { json(res, 200, { ok: true, items: tree.listAll() }); return true; }
-  if (path === "/api/ancestry") { json(res, 200, { ok: true, ancestry: tree.ancestry(id()) }); return true; }
-  // 全局内容搜索(⌘⇧F):grep 真实文件
-  if (path === "/api/search" && method === "GET") { json(res, 200, { ok: true, results: tree.search(url.searchParams.get("q") || "") }); return true; }
 
   // ---- workspaces(root folders)----
   if (path === "/api/workspaces/pick" && method === "POST") return attempt(res, 200, async () => ({ path: await pickDirectory() }));
@@ -87,9 +83,9 @@ export const handleWorkspaceRoutes = async (req: IncomingMessage, res: ServerRes
     serveFile(res, real);
     return true;
   }
-  // 在系统文件管理器里显示该节点:对话 = 打开它的工作目录;文件/文件夹 = 其自身路径
+  // 在系统文件管理器里显示文件或文件夹。
   if (path === "/api/reveal" && method === "POST") {
-    const abs = (chats.get(id()) as { workdir?: string } | null)?.workdir || tree.pathForId(id());
+    const abs = tree.pathForId(id());
     if (!abs) { json(res, 404, { ok: false, error: "not found" }); return true; }
     const plt = process.platform;
     const [cmd, args] = plt === "darwin" ? ["open", ["-R", abs]]

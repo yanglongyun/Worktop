@@ -18,7 +18,7 @@ import { createTask, settleTask } from "./taskStore.js";
 import { createChat } from "../chat/chats.js";
 import { appendItem } from "../chat/messages.js";
 import { EVENTS } from "../shared/events.js";
-import { defaultDir } from "../workspace/tree.js";
+import { executionDirectory, outputDirectory } from "../agent/paths.js";
 import { buildSystem } from "../chat/system.js";
 import { compactionOf, createLedger } from "../chat/turn.js";
 import { emit } from "../bus.js";
@@ -30,8 +30,8 @@ const ERROR_MAX_CHARS = 4000;
  * 开一条任务:建会话行(origin_app 标记发起方,据此不进会话列表)+ tasks 行 + 第一条用户消息。
  * agent 与 complete 共用 —— 从用户视角这两件事没有区别,都是「应用替我干活」。
  */
-export const openTask = ({ appId, title, prompt, cwd }) => {
-  const chat = createChat({ title: String(title || prompt).slice(0, 24), workdir: cwd, originApp: appId });
+export const openTask = ({ appId, title, prompt }) => {
+  const chat = createChat({ title: String(title || prompt).slice(0, 24), originApp: appId });
   createTask({ id: chat.id, appId, prompt });
   const userRow = appendItem(chat.id, { role: "user", content: prompt.slice(0, 100_000) }, { meta: { kind: "message" } });
   emit({ type: "tasks_changed" });
@@ -45,7 +45,7 @@ export const recordTaskReply = (taskId, text, usage = null) => {
 };
 
 export const runAppTask = async (
-  { appId, appName, title, prompt, workdir },
+  { appId, appName, title, prompt, cwd: requestedCwd },
   res, // ServerResponse:SSE 从这里流出去
 ) => {
   const settings = getSettings();
@@ -55,8 +55,8 @@ export const runAppTask = async (
     return;
   }
 
-  const cwd = workdir || defaultDir();
-  const { taskId, userRow } = openTask({ appId, title, prompt, cwd });
+  const cwd = executionDirectory(requestedCwd);
+  const { taskId, userRow } = openTask({ appId, title, prompt });
 
   res.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
@@ -76,6 +76,7 @@ export const runAppTask = async (
     chatId: taskId,
     signal: controller.signal,
     cwd,
+    outputDir: outputDirectory(taskId),
     emit,
     toolResultMaxChars: Number(settings.toolResultMaxChars) || 30000,
   };
@@ -88,7 +89,7 @@ export const runAppTask = async (
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,
-      instructions: buildSystem({ id: `task:${taskId}`, system: null, workdir: cwd }, settings, { rules: false })
+      instructions: buildSystem({ id: taskId, system: null }, settings, { rules: false, cwd })
         + `\n\n# 本轮是应用触发的任务\n\n发起方:应用「${appName}」(${appId})。没有用户守在旁边,不要提问、不要等确认;`
         + `按提示把事做完,做不了就直说失败原因。`,
       input: [userRow.item],

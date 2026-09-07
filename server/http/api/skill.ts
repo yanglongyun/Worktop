@@ -2,17 +2,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { listProductSkills, readSkillDoc, setSkillEnabled } from "../../skills/skills.js";
 
-const json = (res: ServerResponse, status: number, body: unknown) => {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(body));
-};
-
-const readBody = (req: IncomingMessage) =>
-  new Promise<any>((resolve) => {
-    let raw = "";
-    req.on("data", (c) => { raw += c; });
-    req.on("end", () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); } });
-  });
+import { json, parseBody } from "./helpers.js";
 
 export const handleSkillRoutes = async (req: IncomingMessage, res: ServerResponse, url: URL, method: string) => {
   const p = url.pathname;
@@ -23,7 +13,7 @@ export const handleSkillRoutes = async (req: IncomingMessage, res: ServerRespons
     return true;
   }
   if (p === "/api/skills/toggle" && method === "POST") {
-    const body = await readBody(req);
+    const body = await parseBody(req);
     try {
       setSkillEnabled(String(body.id || ""), body.enabled !== false);
       json(res, 200, { ok: true });

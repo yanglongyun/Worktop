@@ -1,12 +1,11 @@
-// 对话服务:repo 之上的业务层 —— 富化未读、广播 chats_changed、校验工作目录。
+// 对话服务:repo 之上的业务层 —— 富化未读、广播 chats_changed。
 import * as repo from "./chats.js";
-import { isAllowedPath } from "../workspace/tree.js";
 import { emit } from "../bus.js";
 
 const changed = () => emit({ type: "chats_changed" });
 
 // 注:repo/chats.ts 尚未脱 @ts-nocheck,推断类型过窄;边界处收口,repo 脱敏后移除。
-type ChatPatch = { title?: string; system?: string | null; workdir?: string; pinned?: boolean };
+type ChatPatch = { title?: string; system?: string | null; pinned?: boolean };
 
 const list = () => {
   const rows = repo.listChats() as any[];
@@ -23,20 +22,13 @@ const get = (id: string) => {
   return { ...row, unread: !!(repo.unreadMap([row.id]) as Record<string, boolean>)[row.id] };
 };
 
-const assertWorkdir = (workdir?: string) => {
-  if (workdir === undefined) return;
-  if (!isAllowedPath(String(workdir))) throw new Error(`工作目录必须在某个工作区内: ${workdir}`);
-};
-
-const create = ({ title, system = null, workdir }: ChatPatch = {}) => {
-  if (workdir) assertWorkdir(workdir);
-  const item = repo.createChat({ title, system, workdir } as any);
+const create = ({ title, system = null }: ChatPatch = {}) => {
+  const item = repo.createChat({ title, system } as any);
   changed();
   return item;
 };
 
 const update = (id: string, patch: ChatPatch = {}) => {
-  assertWorkdir(patch.workdir);
   const item = repo.updateChat(id, patch as any);
   changed();
   return item;

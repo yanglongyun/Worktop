@@ -1,3 +1,4 @@
+import { executionDirectory } from "../agent/paths.js";
 import { DATA_HOME } from "../home.js";
 // 后台任务注册表:`bash` 工具 background:true 时,进程交给这里托管 ——
 // 立即返回 id/pid/日志路径,之后可查状态、读日志、停止。
@@ -148,14 +149,15 @@ const appendLog = (record: Job, chunk: string) => {
   scheduleEmit(record);
 };
 
-const startProcess = ({ command, cwd, reason = "" }: { command: string; cwd?: string; reason?: string }) => {
+const startProcess = ({ command, cwd: requestedCwd, reason = "" }: { command: string; cwd?: string; reason?: string }) => {
   const cmd = String(command || "").trim();
   if (!cmd) throw new Error("command is required");
 
+  const cwd = executionDirectory(requestedCwd);
   const id = randomUUID().slice(0, 8);
   const shell = resolveShell();
   const child = spawn(cmd, {
-    cwd: cwd && existsSync(cwd) ? cwd : process.cwd(),
+    cwd,
     shell,
     detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
@@ -168,13 +170,13 @@ const startProcess = ({ command, cwd, reason = "" }: { command: string; cwd?: st
     mkdirSync(LOG_DIR, { recursive: true });
     logFile = join(LOG_DIR, `${id}.log`);
     logStream = createWriteStream(logFile, { flags: "a" });
-    logStream.write(`# ${cmd}\n# cwd: ${cwd || process.cwd()}\n# started: ${new Date().toISOString()}\n\n`);
+    logStream.write(`# ${cmd}\n# cwd: ${cwd}\n# started: ${new Date().toISOString()}\n\n`);
   } catch { /* 开不出日志文件也照常跑,只是少了文件视角 */ }
 
   const record: Job = {
     id,
     command: cmd,
-    cwd: cwd && existsSync(cwd) ? cwd : process.cwd(),
+    cwd,
     reason: String(reason || ""),
     child,
     pid: child.pid,

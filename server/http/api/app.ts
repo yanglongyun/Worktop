@@ -1,4 +1,4 @@
-// 应用的路由面:列表 / 取址(顺手拉起)/ 停 / 重启 / 日志 / 图标 / APP.md。
+// 应用的路由面:列表 / 取址(顺手拉起)/ 停 / 重启 / 图标 / APP.md。
 //
 // 取址是核心的那一个:**地址永远现问,不许缓存端口**(契约,见仓库根 APP.md)。
 // 界面和 agent 走同一个端点 —— 取址即保活,没起的会被顺手拉起。
@@ -6,21 +6,9 @@ import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { getApp, listApps, readAppDoc } from "../../apps/registry.js";
-import { appLogs, appStatus, ensureApp, restartApp, stopApp } from "../../apps/supervisor.js";
+import { appStatus, ensureApp, restartApp, stopApp } from "../../apps/supervisor.js";
 
-const json = (res: ServerResponse, status: number, body: unknown) => {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(body));
-};
-
-/** 对外形状:manifest 的事实 + 运行时状态。dir 不外传(界面用不上)。 */
-const readBody = (req: IncomingMessage) =>
-  new Promise<any>((resolve) => {
-    let raw = "";
-    req.on("data", (c) => { raw += c; });
-    req.on("end", () => { try { resolve(JSON.parse(raw || "{}")); } catch { resolve({}); } });
-    req.on("error", () => resolve({}));
-  });
+import { json, parseBody } from "./helpers.js";
 
 const publicApp = (app: ReturnType<typeof getApp>) => {
   if (!app) return null;
@@ -43,7 +31,7 @@ export const handleAppRoutes = async (
   if (!p.startsWith("/api/apps")) return false;
   const id = url.searchParams.get("id") || "";
   /** POST 的 id 在 body 里(前端一直这么发),GET 的在 query —— 两边都认。 */
-  const idFrom = async () => id || String((await readBody(req))?.id || "");
+  const idFrom = async () => id || String((await parseBody(req))?.id || "");
 
   if (p === "/api/apps" && method === "GET") {
     json(res, 200, { apps: listApps().map(publicApp) });
@@ -73,11 +61,6 @@ export const handleAppRoutes = async (
     if (!getApp(target)) { json(res, 404, { error: "应用不存在" }); return true; }
     try { await restartApp(target); json(res, 200, { ok: true }); }
     catch (e: any) { json(res, e?.status || 500, { error: String(e?.message || e) }); }
-    return true;
-  }
-
-  if (p === "/api/apps/logs" && method === "GET") {
-    json(res, 200, { logs: appLogs(id) });
     return true;
   }
 

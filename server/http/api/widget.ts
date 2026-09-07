@@ -6,18 +6,7 @@ import { closeWidgetDb } from "../../widgets/db.js";
 import { closeWidgetSite, listWidgetSites, resolveWidgetConfirm, widgetSitePort } from "../../widgets/site.js";
 import { emit } from "../../bus.js";
 
-const json = (res: http.ServerResponse, code: number, body: unknown) => {
-  res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(body));
-};
-
-const readBody = (req: http.IncomingMessage) =>
-  new Promise<any>((resolve) => {
-    let raw = "";
-    req.on("data", (c) => { raw += c; });
-    req.on("end", () => { try { resolve(JSON.parse(raw || "{}")); } catch { resolve({}); } });
-    req.on("error", () => resolve({}));
-  });
+import { json, parseBody } from "./helpers.js";
 
 /** 已处理返回 true;未命中返回 false 让 index 继续。 */
 export const handleWidgetRoutes = async (
@@ -43,7 +32,7 @@ export const handleWidgetRoutes = async (
 
   /** 组件 confirm 的回执:界面把用户的选择送回来。 */
   if (url.pathname === "/api/widgets/confirm-result" && method === "POST") {
-    const body = await readBody(req);
+    const body = await parseBody(req);
     const found = resolveWidgetConfirm(String(body?.requestId || ""), Boolean(body?.ok));
     json(res, found ? 200 : 404, { ok: found });
     return true;
@@ -52,7 +41,7 @@ export const handleWidgetRoutes = async (
   /** 卸载 = 挪进回收站(保留 30 天),同时收掉端口与数据库句柄。 */
   if (url.pathname === "/api/widgets/remove" && method === "POST") {
     try {
-      const body = await readBody(req);
+      const body = await parseBody(req);
       const id = String(body?.id || "").toLowerCase();
       if (!getWidget(id)) throw new Error("组件不存在");
       closeWidgetDb(id);

@@ -1,4 +1,4 @@
-// system prompt 拼装:身份 + 工作目录 + 该文件夹的约定 + 技能清单 + 应用清单 + 工具规则。
+// system prompt 拼装:个人助手身份 + 运行环境 + 技能清单 + 应用清单 + 工具规则。
 // 每次运行现拼,不落库 —— 目录、文档、技能、应用都可能变。
 //
 // 渐进披露:技能和应用在常驻提示词里都只占一行(名称 / 描述 / 去哪 read),
@@ -7,8 +7,8 @@ import path from "path";
 import { appDataHome, appsHome, listApps } from "../apps/registry.js";
 import { listRules } from "./rules.js";
 import { rulesSection } from "./rules.js";
-import { agentContext } from "../workspace/tree.js";
-import { resolveWorkdir } from "./chats.js";
+import os from "node:os";
+import { executionDirectory, outputDirectory } from "../agent/paths.js";
 import { listProductSkills } from "../skills/skills.js";
 import { widgetsHome } from "../widgets/registry.js";
 
@@ -39,29 +39,23 @@ ${lines.join("\n")}
 新建应用:在 ${appsHome()}/<id>/ 下建目录,最小只要 manifest.json 和一个监听 $PORT 的 server;写完自动出现在列表里。`;
 };
 
-const skillsSection = (folderSkills: { name: string; description: string; rel: string }[]) => {
+const skillsSection = () => {
   const product = listProductSkills().filter((s) => s.enabled).map((s) => `- **${s.name}** — ${s.description}  [read: ${s.path}]`);
-  const folder = folderSkills.map((s) => `- **${s.name}** — ${s.description}  [read: ${s.rel}]`);
-  if (!product.length && !folder.length) return "";
+  if (!product.length) return "";
   return `
 
 # 技能
 手头的任务和某条技能的描述对得上时,先 read 它的 SKILL.md,照里面的做。
-${product.join("\n")}${folder.length ? "\n本文件夹专属:\n" + folder.join("\n") : ""}`;
+${product.join("\n")}`;
 };
 
 export const buildSystem = (
-  chat: { id: string; system?: string | null; workdir?: string | null },
+  chat: { id: string; system?: string | null },
   settings: { system?: string; rulesEnabled?: string },
-  opts: { rules?: boolean } = {},
+  opts: { rules?: boolean; cwd?: string } = {},
 ) => {
   const base = (chat.system && chat.system.trim()) || settings.system || "";
-  const cwd = resolveWorkdir(chat);
-  const ctx = agentContext(cwd);
-  const docsBlock = ctx.docs.length
-    ? "\n\n# 本文件夹的约定(优先遵守)\n" +
-      ctx.docs.map((doc) => `——— ${doc.rel} ———\n${doc.content.trim()}`).join("\n\n")
-    : "";
+  const cwd = executionDirectory(opts.cwd);
 
   // 规则关掉时 confirm 工具不存在,提示词里也不能提它。
   const rulesOn = (settings?.rulesEnabled || "on") !== "off";
@@ -76,12 +70,15 @@ export const buildSystem = (
   return `${base}
 
 # 你是谁
-- 你是 Worktop 里的一段对话,绑定一个真实的工作目录。shell 在这里执行,文件在这里建,用户在文件面板里能直接看到。
+- 你是用户电脑上的个人 AI 助手。通过对话理解任务,按需要使用本地文件、终端、浏览器和应用。
+- 文件面板是常用文件夹的快捷入口。根据任务定位实际文件,命令与文件工具可以使用本机路径。
 - 对话 id:${chat.id}
-- 工作目录:${cwd}${docsBlock}${skillsSection(ctx.skills)}
+- 用户主目录:${os.homedir()}
+- 本轮命令与相对路径的默认起点:${cwd}
+- 未指定保存位置的新产物可放在:${outputDirectory(chat.id)}。需要写文件时才创建目录;用户指定的位置优先。${skillsSection()}
 
 # 工具
-- bash(command, background?) — 在工作目录里跑命令。会结束的命令直接跑;dev server / watch 等长驻进程必须 background:true,
+- bash(command, cwd?, background?) — 执行命令,可用 cwd 明确指定本次执行目录。会结束的命令直接跑;dev server / watch 等长驻进程必须 background:true,
   之后用 read 读日志文件、用 kill <pid> 停止。预计输出很大的命令(测试/构建/大范围 grep)先重定向到文件再分段 read,
   截断的输出不可找回。
 - read / edit / write — 文件三件套:有界读(带行号)/ 精确替换 / 新建或整体重写。改文件首选 edit,别用 bash sed。
@@ -90,11 +87,11 @@ export const buildSystem = (
   先 snapshot 拿页面元素清单,再用 ref 定位点击、填写、选择;动作清单和参数以工具描述为准。
 ${confirmDoc}
 每个工具都必须带 summary:一句话说明这次调用的目的,用户会在界面上看到。
-文件类工具的相对路径都相对工作目录。
+文件工具优先使用绝对路径,也支持 ~/。相对路径从本轮默认起点解析。每次 bash 调用独立;一次命令中的 cd 不会改变后续调用的起点。
 
 # 约定
 - 用户的消息可能带附件:图片你能直接看到;其他文件会给出本地路径,用 read/bash 去碰。
-- 改文件前先 read 看清现状,再 edit;不要凭空猜内容。
+- 改文件前先 read 看清现状,再 edit;不要凭空猜内容。操作具体项目时,先检查并阅读项目适用的 AGENTS.md / CLAUDE.md 和相关技能,按任务范围遵守。
 - 要看网页、查资料、操作站点,用 browser。
 - 别空谈:能用工具做的就直接做。做完给一个清楚的最终回复,工具细节不必复述给用户。
 

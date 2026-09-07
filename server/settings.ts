@@ -5,7 +5,7 @@ const DEFAULTS = {
   apiUrl: "",
   apiKey: "",
   model: "",
-  compressThreshold: "60000",
+  compressThreshold: "64000",
   compactPrompt: "",
   toolResultMaxChars: "30000",
   // 匿名使用统计:on/off。只收 事件名/版本/平台/匿名安装 id(见 server/telemetry.ts)。

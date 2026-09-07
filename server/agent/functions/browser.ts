@@ -10,7 +10,8 @@
 // AI 开的网页按策略落在分屏侧组 —— 左边对话继续流,右边看着 AI 操作。
 // 纯浏览器/dev(没有桌面壳)时诚实报错,不装能行。
 import { writeFileSync, mkdirSync } from "fs";
-import { dirname, isAbsolute, resolve } from "path";
+import { dirname, join } from "path";
+import { resolveLocalPath } from "../paths.js";
 import { browserRequest, hasHost, listTabs, openTab } from "../../browser/host.js";
 
 export const browserDef = {
@@ -23,7 +24,7 @@ export const browserDef = {
     "【动作】list 列出已开标签(拿 tab_id);open 打开网址成新标签;navigate/back 跳转后退;" +
     "snapshot 读页面结构;read 读正文文本;click/double_click/hover 点击悬停;" +
     "fill 填输入框(必须给 value,清空写空串);select 选下拉项;press 按键(Enter/Tab/Escape/方向键等);" +
-    "scroll 滚动(delta_y);js 在隔离世界执行 JavaScript;screenshot 截图存成工作目录里的 PNG。" +
+    "scroll 滚动(delta_y);js 在隔离世界执行 JavaScript;screenshot 截图保存为本地 PNG。" +
     "除 list/open 外都必须带 tab_id(先 list)。",
   parameters: {
     type: "object",
@@ -50,7 +51,7 @@ export const browserDef = {
       code: { type: "string", description: "js:要在页面里执行的 JavaScript 表达式" },
 
       text: { type: "string", description: "type:要输入的文本" },
-      path: { type: "string", description: "screenshot 可选:保存路径(默认存工作目录 web-shot-<时间>.png)" },
+      path: { type: "string", description: "screenshot 可选:保存路径,支持绝对路径或 ~/;默认保存到本轮产物目录" },
     },
     required: ["summary", "action"],
     additionalProperties: false,
@@ -137,14 +138,15 @@ export const browser = async ({
         if (!base64) return "error: 截图失败(宿主没有返回图像)";
         const bytes = Buffer.from(base64, "base64");
         const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
-        const rel = String(savePath || "").trim() || `web-shot-${stamp}.png`;
-        const abs = isAbsolute(rel) ? rel : resolve(ctx.cwd || process.cwd(), rel);
+        const requested = String(savePath || "").trim();
+        const abs = requested ? resolveLocalPath(requested, ctx.cwd)
+          : resolveLocalPath(join(ctx.outputDir || ctx.cwd || "~", `web-shot-${stamp}.png`));
         mkdirSync(dirname(abs), { recursive: true });
         writeFileSync(abs, bytes);
         ctx.emit?.({ type: "tree_changed", reason: "browser_screenshot", paths: [abs] });
-        // 截图走 image 通道进当前轮上下文 —— 模型看得见画面;文件同时留在树里给用户
+        // 截图走 image 通道进当前轮上下文,并返回实际保存位置。
         return {
-          output: `已截图保存到 ${rel}(${Math.round(bytes.length / 1024)} KB),并已作为图像交给你查看;文件在左侧树里,用户也可点开。`,
+          output: `已截图保存到 ${abs}(${Math.round(bytes.length / 1024)} KB),并已作为图像交给你查看。`,
           image: { path: abs, mimeType: "image/png", size: bytes.length },
         };
       }

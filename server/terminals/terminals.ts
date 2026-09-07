@@ -1,7 +1,7 @@
 // 交互式终端会话,按 ws 连接分组:连接断了,它开的终端全部收尾。
 import { existsSync } from "fs";
 import * as pty from "node-pty";
-import * as tree from "../workspace/treeService.js";
+import { terminalDirectory } from "../agent/paths.js";
 
 type Session = { id: string; term: pty.IPty; cwd: string };
 /** ws 连接:终端会话挂在连接对象上,连接消失即随之回收。 */
@@ -55,7 +55,7 @@ const startTerminal = (client: Client, payload: any, sendJson: SendJson) => {
 
   let cwd: string;
   try {
-    cwd = tree.terminalCwd(payload.cwd || payload.nodeId || "");
+    cwd = terminalDirectory(payload.cwd || "");
   } catch (error) {
     sendJson({ type: "terminal_error", terminalId, error: (error as Error).message });
     return;

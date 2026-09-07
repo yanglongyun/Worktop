@@ -12,19 +12,8 @@ import { getApp } from "./registry.js";
 import { identifyApp, touchApp } from "./supervisor.js";
 import { openTask, recordTaskReply, runAppTask } from "./tasks.js";
 import { settleTask } from "./taskStore.js";
-import { defaultDir } from "../workspace/tree.js";
 
-const json = (res: ServerResponse, status: number, body: unknown) => {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(body));
-};
-
-const readBody = async (req: IncomingMessage): Promise<any> => {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
-  if (!chunks.length) return {};
-  try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { return {}; }
-};
+import { json, parseBody } from "../http/api/helpers.js";
 
 const bearer = (req: IncomingMessage) =>
   String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
@@ -71,7 +60,7 @@ export const handleHostRoutes = async (
 
     if (method === "POST" && path === "/ai/complete") {
       if (!need("ai.complete")) return true;
-      const input = await readBody(req);
+      const input = await parseBody(req);
       const prompt = String(input.prompt || "").trim();
       if (!prompt) { json(res, 400, { error: "prompt 不能为空" }); return true; }
       const base = runtime();
@@ -90,7 +79,6 @@ export const handleHostRoutes = async (
         appId: app.id,
         title: String(input.title || "").trim() || prompt,
         prompt,
-        cwd: defaultDir(),
       });
       try {
         const result: any = await complete({
@@ -116,7 +104,7 @@ export const handleHostRoutes = async (
 
     if (method === "POST" && path === "/notify") {
       if (!need("notify")) return true;
-      const input = await readBody(req);
+      const input = await parseBody(req);
       const text = String(input.text || "").trim().slice(0, 300);
       if (!text) { json(res, 400, { error: "text 不能为空" }); return true; }
       emit({
@@ -132,7 +120,7 @@ export const handleHostRoutes = async (
     // 应用触发的完整 agent 轮次:独立任务(tasks 表),不过规则,SSE 流回
     if (method === "POST" && path === "/ai/agent") {
       if (!need("ai.agent")) return true;
-      const input = await readBody(req);
+      const input = await parseBody(req);
       const prompt = String(input.prompt || "").trim();
       if (!prompt) { json(res, 400, { error: "prompt 不能为空" }); return true; }
       await runAppTask({
@@ -140,7 +128,7 @@ export const handleHostRoutes = async (
         appName: app.name,
         title: String(input.title || "").trim() || prompt,
         prompt,
-        workdir: input.workdir ? String(input.workdir) : undefined,
+        cwd: input.cwd ? String(input.cwd) : app.dir,
       }, res);
       return true;
     }
