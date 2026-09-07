@@ -13,7 +13,7 @@ const ask = async () => {
   anscard.hidden = false; copy.hidden = true;
   ans.className = "ans waiting";
   ans.innerHTML = "<i>·</i><i>·</i><i>·</i>";
-  const r = await post("/_wt/ai", {
+  const r = await post("/widgets/ai", {
     summary: "快速问答:" + q.slice(0, 60),
     system: "你在一个侧栏小组件里回答一次性的小问题。用中文,直接给答案,简短、准确;代码或命令用行内形式;不要开场白、不要追问。",
     prompt: q,
@@ -42,10 +42,10 @@ clear.onclick = () => {
   text.focus();
 };
 
-// 答案里的链接开进工作台标签(/_wt/open),不去系统浏览器
+// 答案里的链接开进工作台标签(/widgets/open),不去系统浏览器
 ans.onclick = (e) => {
   const a = e.target.closest("a[href]");
   if (!a) return;
   e.preventDefault();
-  void post("/_wt/open", { url: a.getAttribute("href") });
+  void post("/widgets/open", { url: a.getAttribute("href") });
 };

@@ -1,9 +1,11 @@
+import { type AppInfo, appsApi } from "../../../api/apps";
+import { type HistoryEntry, browserApi } from "../../../api/browser";
+import { type Chat, chatsApi } from "../../../api/chats";
 // 新标签页:一个大输入框 + 三种模式(对话 / 网址 / 命令)→ 最近对话 / 最近网站 / 应用。
 // 不猜输入是什么:模式由框内左侧三个图标显式切换(⌘1/2/3、Tab),记住上次的模式。
 // 网址卡里不是网址的就交给 Google(地址栏的老规矩);命令卡留空回车只开终端,输了命令就开终端并执行。
 import { useEffect, useRef, useState } from "react";
 import { Bot, Globe, Terminal } from "lucide-react";
-import { api, type AppInfo, type HistoryEntry, type Node } from "../../../api";
 import { Favicon } from "../../ui";
 import type { LauncherTab, WorkspaceGroupId } from "../types";
 
@@ -43,7 +45,7 @@ const dateLine = () => {
 export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: WorkspaceGroupId }) {
   const [mode, setModeState] = useState<Mode>(readMode);
   const [value, setValue] = useState("");
-  const [chats, setChats] = useState<Node[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [apps, setApps] = useState<AppInfo[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,9 +58,9 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
   };
 
   useEffect(() => {
-    void api.listChats().then(({ chats }) => setChats(chats.filter((c) => c.kind === "chat").slice(0, 4))).catch(() => {});
-    void api.listHistory().then((rows) => setHistory(rows.slice(0, 4))).catch(() => {});
-    void api.listApps().then((list) => setApps(list.filter((a) => !a.invalid).slice(0, 12))).catch(() => {});
+    void chatsApi.listChats().then(({ chats }) => setChats(chats.filter((c) => c.kind === "chat").slice(0, 4))).catch(() => {});
+    void browserApi.listHistory().then((rows) => setHistory(rows.slice(0, 4))).catch(() => {});
+    void appsApi.listApps().then((list) => setApps(list.filter((a) => !a.invalid).slice(0, 12))).catch(() => {});
   }, []);
 
   const fire = (type: string, detail: Record<string, unknown> = {}) =>
@@ -93,7 +95,7 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
 
         {/* 大框:左侧三个模式图标,提示语跟着变 */}
         <div>
-          <div className="flex items-center gap-3 bg-surface border border-border-strong rounded-[14px] px-3.5 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-colors focus-within:border-accent">
+          <div className="flex items-center gap-3 bg-surface border border-border-strong rounded-[14px] p-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-colors focus-within:border-accent">
             <div className="shrink-0 flex gap-0.5 bg-bg-inset rounded-[9px] p-[3px]" role="tablist">
               {MODES.map((m, i) => (
                 <button

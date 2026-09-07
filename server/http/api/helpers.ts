@@ -21,7 +21,7 @@ export const attempt = async (res: ServerResponse, code: number, work: () => unk
   return true;
 };
 
-// 静态文件 mime —— 给 /api/fs(按路径服务,供 HTML 预览解析相对资源)和 /api/file/raw 复用
+// 静态文件 mime —— 给 /api/files/local(按路径服务,供 HTML 预览解析相对资源)和 /api/files/raw 复用
 const MIME: Record<string, string> = {
   ".html": "text/html", ".htm": "text/html",
   ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript",

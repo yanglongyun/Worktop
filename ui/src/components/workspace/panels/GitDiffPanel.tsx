@@ -1,7 +1,7 @@
+import { type GitFileStatus, gitApi } from "../../../api/git";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Copy, GitCompare, Minus, Plus, RefreshCw, RotateCcw } from "lucide-react";
-import { api, type GitFileStatus } from "../../../api";
 import { DiffView } from "../../files/DiffView";
 import { dialog } from "../../ui";
 import type { GitDiffTab } from "../types";
@@ -24,10 +24,10 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
     setLoading(true);
     setError(null);
     try {
-      const result = await api.gitFilePair({ root: tab.root, path: tab.path, staged: tab.staged, commit: tab.commit });
+      const result = await gitApi.gitDiff({ root: tab.root, path: tab.path, staged: tab.staged, commit: tab.commit });
       let file: GitFileStatus | null = null;
       if (!tab.commit) {
-        const status = await api.gitStatus();
+        const status = await gitApi.gitStatus();
         const repo = status.repositories.find((item) => item.root === tab.root);
         file = repo?.files.find((item) => item.path === tab.path || item.originalPath === tab.path) || null;
       }
@@ -80,7 +80,7 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
 
   const discard = async () => {
     if (!(await dialog.confirm(`丢弃「${tab.path}」的更改?\n这个操作不可撤销。`, { danger: true, confirmText: "丢弃" }))) return;
-    runAction("discard", () => api.gitDiscard({ root: tab.root, path: tab.path }));
+    runAction("discard", () => gitApi.gitDiscard({ root: tab.root, path: tab.path }));
   };
 
   return (
@@ -94,7 +94,7 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
           <DiffActionButton
             title="暂存更改"
             disabled={disabled}
-            onClick={() => runAction("stage", () => api.gitStage({ root: tab.root, path: tab.path }))}
+            onClick={() => runAction("stage", () => gitApi.gitStage({ root: tab.root, path: tab.path }))}
           >
             <Plus size={13} />
           </DiffActionButton>
@@ -103,7 +103,7 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
           <DiffActionButton
             title="取消暂存"
             disabled={disabled}
-            onClick={() => runAction("unstage", () => api.gitUnstage({ root: tab.root, path: tab.path }))}
+            onClick={() => runAction("unstage", () => gitApi.gitUnstage({ root: tab.root, path: tab.path }))}
           >
             <Minus size={13} />
           </DiffActionButton>

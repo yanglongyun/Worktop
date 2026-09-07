@@ -1,4 +1,4 @@
-// 宿主的无状态补全(POST /host/ai/complete)。生成不需要 agent:
+// 宿主的无状态补全(POST /apps/ai/complete)。生成不需要 agent:
 // 方向是结构化输出定的,产出是单次补全写的,谁也不用碰工具。
 const TIMEOUT_MS = 8 * 60 * 1000;
 
@@ -7,7 +7,7 @@ export const hostAiAvailable = (): boolean =>
 
 export async function hostComplete(system: string, prompt: string, opts: { schema?: object; title?: string } = {}): Promise<string> {
   const hostUrl = (process.env.HOST_URL ?? '').replace(/\/+$/, '');
-  const res = await fetch(`${hostUrl}/host/ai/complete`, {
+  const res = await fetch(`${hostUrl}/apps/ai/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.APP_TOKEN ?? ''}` },
     body: JSON.stringify({

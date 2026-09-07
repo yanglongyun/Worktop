@@ -1,8 +1,8 @@
+import { widgetsApi } from "../../api/widgets";
 // 组件管理(标签页)。侧栏那 260px 只够列个名字;管理是「摊开来看」的事 ——
 // 每个组件一张卡:图标、名字、说明、权限、装在哪、钉/取下、删除。
 import { useEffect, useState } from "react";
 import { LayoutGrid, Sparkles, Trash2 } from "lucide-react";
-import { api } from "../../api";
 import { dialog } from "../ui";
 import { dropFromOrder, requestCreateWidget } from "../../lib/widgetOrder";
 import type { WidgetDef } from "../sidebar/registry";
@@ -10,7 +10,6 @@ import type { WidgetDef } from "../sidebar/registry";
 const PERMISSION_LABEL: Record<string, string> = {
   sql: "数据库",
   ai: "调用 AI",
-  fs: "文件",
   ui: "界面提示",
 };
 
@@ -18,7 +17,7 @@ export function WidgetsManager() {
   const [widgets, setWidgets] = useState<WidgetDef[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const reload = () => api.listWidgets()
+  const reload = () => widgetsApi.listWidgets()
     .then((list) => setWidgets(list as WidgetDef[]))
     .catch(() => {})
     .finally(() => setLoading(false));
@@ -32,7 +31,7 @@ export function WidgetsManager() {
       { danger: true, confirmText: "删除" },
     );
     if (!ok) return;
-    try { await api.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
+    try { await widgetsApi.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
     dropFromOrder(widget.id);
     void reload();
   };

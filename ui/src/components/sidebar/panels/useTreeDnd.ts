@@ -1,5 +1,5 @@
+import { type FileNode, filesApi } from "../../../api/files";
 import { useState } from "react";
-import { api, type Node } from "../../../api";
 import { dialog } from "../../ui";
 import { beginGlobalDrag, endGlobalDrag } from "../../../lib/drag";
 import {
@@ -32,7 +32,7 @@ export function useTreeDnd({
   /** 多选拖拽:返回当前多选 id 集(拖的是选中项之一时,整组一起搬)。 */
   getSelection?: () => string[];
 }) {
-  const [activeNode, setActiveNode] = useState<Node | null>(null);
+  const [activeNode, setActiveNode] = useState<FileNode | null>(null);
   const activeId = activeNode?.id || null;
   /** 当前会被落入的目标目录 id(null = 没有可行目标,不亮)。 */
   const [overDirId, setOverDirId] = useState<string | null>(null);
@@ -59,16 +59,16 @@ export function useTreeDnd({
     dirId !== id && !dirId.startsWith(id + "/") && parentOf(id) !== dirId;
 
   /** 悬停节点 → 目标目录:文件夹是它自己,文件是它所在的文件夹。 */
-  const targetDirOf = (node: Node) => (node.kind === "space" ? node.id : node.parent_id || null);
+  const targetDirOf = (node: FileNode) => (node.kind === "folder" ? node.id : node.parent_id || null);
 
   /** 移动 + 重名覆盖确认:服务端默认拒绝同名,确认后带 overwrite 重试(旧的进废纸篓)。 */
   const moveWithConfirm = async (sourceId: string, dirId: string) => {
     try {
-      await api.moveNode(sourceId, dirId);
+      await filesApi.moveNode(sourceId, dirId);
     } catch (e: any) {
       if (/已有同名/.test(e?.message || "")) {
         if (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" })) {
-          await api.moveNode(sourceId, dirId, true);
+          await filesApi.moveNode(sourceId, dirId, true);
         }
       } else throw e;
     }
@@ -77,14 +77,14 @@ export function useTreeDnd({
   // ── dnd-kit 事件 ──
   const onDragStart = (e: DragStartEvent) => {
     beginGlobalDrag(); // webview/iframe 失明,end/cancel 恢复
-    const node = (e.active.data.current as any)?.node as Node | undefined;
+    const node = (e.active.data.current as any)?.node as FileNode | undefined;
     if (node) setActiveNode(node);
   };
 
   const onDragOver = (e: DragOverEvent) => {
     const over = e.over;
     if (!over || String(over.id) === ROOT_ID || !activeId) { setOverDirId(null); return; }
-    const node = (over.data.current as any)?.node as Node | undefined;
+    const node = (over.data.current as any)?.node as FileNode | undefined;
     if (!node) { setOverDirId(null); return; }
     const dirId = targetDirOf(node);
     if (!dirId) { setOverDirId(null); return; }

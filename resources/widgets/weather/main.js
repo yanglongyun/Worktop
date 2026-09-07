@@ -1,7 +1,7 @@
 const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
     .then((r) => r.json());
-const http = (url) => post("/_wt/http", { url }).then((r) => {
+const http = (url) => post("/widgets/http", { url }).then((r) => {
   if (!r.ok) throw new Error(r.error);
   return JSON.parse(r.text);
 });

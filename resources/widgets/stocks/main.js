@@ -11,7 +11,7 @@ const save = () => localStorage.setItem("codes", JSON.stringify(codes));
 const load = async () => {
   if (!codes.length) { list.innerHTML = '<div class="empty">加一个代码看看</div>'; stamp.textContent = ""; return; }
   try {
-    const r = await post("/_wt/http", { url: "https://qt.gtimg.cn/q=" + codes.join(",") });
+    const r = await post("/widgets/http", { url: "https://qt.gtimg.cn/q=" + codes.join(",") });
     if (!r.ok) throw new Error(r.error);
     // 返回形如 v_sh000001="1~上证指数~000001~3986.30~3952.18~…";  字段:1 名称 3 现价 4 昨收
     const quotes = new Map();
@@ -59,7 +59,7 @@ list.onclick = (e) => {
   if (!row) return;
   const code = row.dataset.code;
   const symbol = code.startsWith("us") ? code.slice(2) : code.toUpperCase();
-  void post("/_wt/open", { url: `https://xueqiu.com/S/${symbol}` });
+  void post("/widgets/open", { url: `https://xueqiu.com/S/${symbol}` });
 };
 refresh.onclick = load;
 

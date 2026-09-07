@@ -1,10 +1,10 @@
+import { appsApi } from "../../../api/apps";
 // 应用的身体:一个 iframe,指向 app **自己的 origin**(http://127.0.0.1:<app 端口>)。
 //
 // 地址不缓存 —— 端口每次启动都变,挂载时现向宿主取(取址顺手会把没起的应用拉起)。
 // 真 origin 意味着 app 写 href="/style.css" 这种绝对路径也是对的
 // (0.8.0 用路径前缀挂载踩过的坑,这套模型从根上不存在)。
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../../../api";
 import type { AppTab } from "../types";
 import { AlertTriangle, RotateCw } from "lucide-react";
 
@@ -21,7 +21,7 @@ export function AppPanel({ tab, socket }: { tab: AppTab; socket: Socket }) {
     setError("");
     setStopped(false);
     setOrigin(null);
-    api.appAddress(tab.appId)
+    appsApi.appAddress(tab.appId)
       .then((url) => { setOrigin(url); setNonce((n) => n + 1); })
       .catch((e: any) => setError(e?.message || "启动失败"));
   }, [tab.appId]);

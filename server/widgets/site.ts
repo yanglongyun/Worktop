@@ -6,7 +6,7 @@
 //
 // 白拿的三个好处:
 //   1. 不同端口 = 不同 origin → localStorage / cookie 天然互不可见,隔离不用靠 sandbox 兜;
-//   2. 宿主 API 与组件**同源**(/_wt/* 由本端口自己应答)→ 组件写 fetch("/_wt/sql") 即可;
+//   2. 宿主 API 与组件**同源**(/widgets/* 由本端口自己应答)→ 组件写 fetch("/widgets/sql") 即可;
 //   3. 凭据由宿主在服务端注入,**永远不出现在页面里** —— 组件根本不知道自己是谁在替它签名。
 import http from "http";
 import { getWidget, widgetFile, listWidgets } from "./registry.js";
@@ -14,7 +14,7 @@ import { batchWidgetSql, execWidgetSql } from "./db.js";
 import { runWidgetAi } from "./ai.js";
 import { emit } from "../bus.js";
 
-// /_wt/confirm 的往返:emit 出去,等界面把用户的选择送回来(/api/widgets/confirm-result)
+// /widgets/confirm 的往返:emit 出去,等界面把用户的选择送回来(/api/widgets/confirm/result)
 const pendingConfirms = new Map<string, (ok: boolean) => void>();
 export const resolveWidgetConfirm = (requestId: string, ok: boolean) => {
   const resolve = pendingConfirms.get(String(requestId));
@@ -83,7 +83,7 @@ const need = (id: string, permission: string) => {
 };
 
 /** 宿主 API:同源 HTTP,没有 SDK —— 与挂载方式正交(iframe/标签页/curl 都一样能调)。 */
-const hostApi = async (id: string, rel: string, req: http.IncomingMessage, res: http.ServerResponse) => {
+const handleWidgetHostRequest = async (id: string, rel: string, req: http.IncomingMessage, res: http.ServerResponse) => {
   const method = req.method || "GET";
   try {
     if (rel === "/context" && method === "GET") {
@@ -160,7 +160,7 @@ const serve = async (id: string, req: http.IncomingMessage, res: http.ServerResp
   const url = new URL(req.url || "/", "http://127.0.0.1");
   let pathname = decodeURIComponent(url.pathname);
 
-  if (pathname.startsWith("/_wt/")) return hostApi(id, pathname.slice(4), req, res);
+  if (pathname.startsWith("/widgets/")) return handleWidgetHostRequest(id, pathname.slice("/widgets".length), req, res);
 
   if (pathname.endsWith("/")) pathname += "index.html";
   const file = widgetFile(id, pathname);

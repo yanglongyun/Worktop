@@ -1,11 +1,14 @@
+import { type Settings } from "../../api/settings";
+import { type SkillInfo } from "../../api/skills";
+import { type Chat } from "../../api/chats";
+import { type FileNode } from "../../api/files";
 import { SkillDocumentPanel } from "./panels/SkillDocumentPanel";
-import type { Settings, SkillInfo, Node } from "../../api";
 import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
 import { WidgetsManager } from "../widgets/WidgetsManager";
 import { AppPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, TaskPanel } from "./panels";
-import { isAppTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isTaskTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
+import { isAppTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isTaskTab, isWidgetsTab, isContentTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -37,7 +40,7 @@ export function TabContent({
   gitRefreshKey: number;
   onFileChange: (id: string, value: string) => void;
   onFileSaved: (id: string) => void;
-  onSelect: (n: Node) => void;
+  onSelect: (n: (Chat | FileNode)) => void;
   onOpenSkill: (skill: SkillInfo) => void;
   onOpenNav?: () => void;
   onOpenSettings: () => void;
@@ -89,7 +92,7 @@ export function TabContent({
     );
   }
 
-  if (tab.kind === "chat-start" || (isNodeTab(tab) && tab.kind === "chat")) {
+  if (tab.kind === "chat-start" || (isContentTab(tab) && tab.kind === "chat")) {
     return (
       <ChatPanel
         key={tab.id}
@@ -105,7 +108,7 @@ export function TabContent({
     );
   }
 
-  if (isNodeTab(tab) && tab.kind === "file") {
+  if (isContentTab(tab) && tab.kind === "file") {
     return (
       <FilePanel
         key={tab.id}

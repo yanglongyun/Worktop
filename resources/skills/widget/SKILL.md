@@ -31,17 +31,17 @@ description: 给 Worktop 造一个侧栏组件(小工具):零构建、目录即�
 | 字段 | 说明 |
 |---|---|
 | `name` `icon` `description` | 面板里显示;description 也给 AI 看 |
-| `permissions` | 要什么写什么,不写就没有:`sql` 自己的库 · `ai` 调 AI · `fs` 读写工作区文件(首次弹用户授权)· `net` 通过宿主代理访问外网。`ui`(toast / confirm / open)免申请 |
+| `permissions` | 要什么写什么,不写就没有:`sql` 自己的库 · `ai` 调 AI · `net` 通过宿主代理访问外网。toast / confirm / open 免申请 |
 | `hosts` | `net` 的域名白名单,只放行这些;`["*"]` 任意域名(RSS 阅读器这类) |
 | `position` | 列表排序,小的在前;缺省排最后 |
 
 ## 宿主 API:同源 HTTP,没有 SDK
 
-组件有自己独立的 origin,`/_wt/*` 由它自己应答,直接 `fetch`:
+组件有自己独立的 origin,`/widgets/*` 由宿主在组件自己的端口应答,直接 `fetch`。这个前缀是宿主保留路径,不要在组件目录里放同名资源:
 
 ```js
 const sql = (sql, params = []) =>
-  fetch("/_wt/sql", { method: "POST", headers: { "content-type": "application/json" },
+  fetch("/widgets/sql", { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ sql, params }) }).then((r) => r.json());
 
 await sql("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT)");
@@ -51,17 +51,16 @@ const { rows } = await sql("SELECT * FROM items ORDER BY id DESC");
 
 | 端点 | 权限 | 说明 |
 |---|---|---|
-| `POST /_wt/sql` `{ sql, params }` → `{ rows, changes }` | sql | 只能碰自己的库 |
-| `POST /_wt/sql/batch` `{ statements: [{sql, params}] }` | sql | 一个事务 |
-| `GET /_wt/context` → `{ id, name, theme, locale }` | — | 组件自身信息 |
-| `POST /_wt/ai` `{ summary, system, prompt }` → `{ text, tokens }` | ai | 无状态补全;`summary` 必填,一句话说明目的 |
-| `POST /_wt/http` `{ url }` → `{ status, contentType, text }` | net | GET 代理,12s 超时,2MB 上限;只放行 `hosts` |
-| `POST /_wt/toast` `{ message }` | — | 右下角轻提示 |
-| `POST /_wt/confirm` `{ message }` → `{ confirmed }` | — | 阻塞到用户选择,2 分钟没人理按取消 |
-| `POST /_wt/open` `{ url }` | — | 在工作台里开网页标签。**不要用 `target="_blank"`**,那会被丢去系统浏览器 |
-| `POST /_wt/fs/read` `/_wt/fs/write` `/_wt/fs/list` | fs | 工作区文件,首次弹授权 |
+| `POST /widgets/sql` `{ sql, params }` → `{ rows, changes }` | sql | 只能碰自己的库 |
+| `POST /widgets/sql/batch` `{ statements: [{sql, params}] }` → `{ results }` | sql | 一个事务 |
+| `GET /widgets/context` → `{ id, name, permissions }` | — | 组件自身信息与声明的权限 |
+| `POST /widgets/ai` `{ summary, system, prompt }` → `{ text, tokens }` | ai | 无状态补全;`summary` 必填,一句话说明目的 |
+| `POST /widgets/http` `{ url }` → `{ status, contentType, text }` | net | GET 代理,12s 超时,2MB 上限;只放行 `hosts` |
+| `POST /widgets/toast` `{ message }` | — | 右下角轻提示 |
+| `POST /widgets/confirm` `{ message }` → `{ confirmed }` | — | 阻塞到用户选择,2 分钟没人理按取消 |
+| `POST /widgets/open` `{ url }` | — | 在工作台里开网页标签。**不要用 `target="_blank"`**,那会被丢去系统浏览器 |
 
-组件被 CSP 断网:外网只能走 `/_wt/http`,脚本样式只能来自自己目录。
+组件被 CSP 断网:外网只能走 `/widgets/http`,脚本样式只能来自自己目录。
 
 ## 硬性约束(违反了跑不起来)
 
@@ -86,7 +85,7 @@ const { rows } = await sql("SELECT * FROM items ORDER BY id DESC");
 ```
 
 ```js
-const sql = (s, p = []) => fetch("/_wt/sql", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sql: s, params: p }) }).then((r) => r.json());
+const sql = (s, p = []) => fetch("/widgets/sql", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sql: s, params: p }) }).then((r) => r.json());
 await sql("CREATE TABLE IF NOT EXISTS taps (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT DEFAULT (datetime('now')))");
 const render = async () => { const { rows } = await sql("SELECT * FROM taps ORDER BY id DESC LIMIT 20"); log.innerHTML = rows.map((r) => `<li>${r.at}</li>`).join(""); };
 add.onclick = async () => { await sql("INSERT INTO taps DEFAULT VALUES"); render(); };

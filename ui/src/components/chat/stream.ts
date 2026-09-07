@@ -1,8 +1,8 @@
+import { type MessageRow } from "../../api/chats";
 // 直播 reducer:一块面板一份,事件按 chatId 认领(广播是全量的)。
 // 行对象原地修改,改完由调用方 bump 触发重渲染。
 import { EVENTS } from "../../../../server/shared/events";
 import { mkKey, toolRow, renderRows, type Row } from "./thread";
-import type { MessageRow } from "../../api";
 
 export interface StreamPorts {
   chatId: string;

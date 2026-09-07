@@ -1,7 +1,7 @@
 // @ts-nocheck
 // 应用触发的活儿 —— 任务机制。两种入口:
-//   /host/ai/agent    完整 agent 轮次(带工具),SSE 流回
-//   /host/ai/complete 单次补全(无工具),一问一答
+//   /apps/ai/agent    完整 agent 轮次(带工具),SSE 流回
+//   /apps/ai/complete 单次补全(无工具),一问一答
 // 两者都在「任务」里留一条记录,用户看得见应用替自己干了什么。
 //
 // 过程与用户会话**同规格**:每一步(思考/正文/工具调用/工具结果)逐条落 messages,
@@ -13,14 +13,14 @@
 //   2. 结果以 SSE 流回给发起的应用:tool(进度)/ error / done。应用只认 error 和 done。
 import { runAgent as runAi } from "../agent/index.js";
 import { createRunner, tools } from "../agent/tools.js";
-import { getSettings } from "../settings.js";
+import { getSettings } from "../settings/store.js";
 import { createTask, settleTask } from "./taskStore.js";
-import { createChat } from "../chat/chats.js";
-import { appendItem } from "../chat/messages.js";
+import { createChat } from "../chats/store.js";
+import { appendItem } from "../chats/messages.js";
 import { EVENTS } from "../shared/events.js";
 import { executionDirectory, outputDirectory } from "../agent/paths.js";
-import { buildSystem } from "../chat/system.js";
-import { compactionOf, createLedger } from "../chat/turn.js";
+import { buildSystem } from "../chats/prompt.js";
+import { compactionOf, createLedger } from "../chats/turn.js";
 import { emit } from "../bus.js";
 
 const MAX_ROUNDS = 64;

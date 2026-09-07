@@ -7,13 +7,13 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { setBroadcaster } from "../bus.js";
 import { EVENTS } from "../shared/events.js";
-import { runChat, stopChat } from "../chat/turn.js";
-import { appendItem } from "../chat/messages.js";
-import { touchChat } from "../chat/chats.js";
+import { runChat, stopChat } from "../chats/turn.js";
+import { appendItem } from "../chats/messages.js";
+import { touchChat } from "../chats/store.js";
 import { emit } from "../bus.js";
 import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "../terminals/terminals.js";
 import { registerHost, registerTab, resolveBrowserResult, unregisterClient, unregisterTab, updateTab } from "../browser/host.js";
-import { normalizeMany as normalizeAttachments } from "../chat/files.js";
+import { normalizeMany as normalizeAttachments } from "../files/attachments.js";
 import { isTrustedHost, isTrustedOrigin } from "./origin.js";
 
 const clients = new Set();

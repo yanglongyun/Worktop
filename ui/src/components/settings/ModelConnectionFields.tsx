@@ -1,5 +1,4 @@
-import type { Settings } from "../../api";
-
+import { type Settings } from "../../api/settings";
 export type ModelConnection = Pick<Settings, "apiUrl" | "apiKey" | "model">;
 export const settingsInputClass = "w-full border border-border bg-bg px-3 py-2 text-[13px] font-normal text-text outline-none transition-colors placeholder:text-text-faint focus:border-accent disabled:opacity-50";
 

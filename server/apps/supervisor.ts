@@ -267,7 +267,7 @@ export const appStatus = (id: string) => {
 };
 
 /** app 作用域凭证。与进程无关 —— 纯静态 app 也要能调宿主能力。 */
-/** 反查:token → appId。/host/* 靠它认身份,路径里不带 id。 */
+/** 反查:token → appId。/apps/* 靠它认身份,路径里不带 id。 */
 export const identifyApp = (token: string) => {
   if (!token) return "";
   for (const record of records.values()) if (record.token === token) return record.id;
@@ -277,7 +277,7 @@ export const identifyApp = (token: string) => {
 /**
  * 回收前先问一声(契约条款)。
  *
- * 必须问,因为 lastUsed 只反映取址和 /host/* 调用 —— **浏览器是直连 app 自己的
+ * 必须问,因为 lastUsed 只反映取址和 /apps/* 调用 —— **浏览器是直连 app 自己的
  * origin 的,那些流量宿主根本看不见**。用户正开着应用干活,在宿主眼里和闲置十分钟
  * 一模一样,不问就杀是错的。app 在 health 里应答 `{"busy": true}` 即推迟回收。
  *

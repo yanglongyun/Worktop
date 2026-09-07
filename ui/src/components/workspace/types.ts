@@ -1,5 +1,6 @@
-import type { Node, SkillInfo } from "../../api";
-
+import { type Chat } from "../../api/chats";
+import { type FileNode } from "../../api/files";
+import { type SkillInfo } from "../../api/skills";
 const TERMINAL_TAB_PREFIX = "__terminal__";
 const GIT_TAB_PREFIX = "__git__";
 const GIT_DIFF_TAB_PREFIX = "__git_diff__";
@@ -118,7 +119,7 @@ export const skillTab = (skill: SkillInfo): SkillTab => ({
   id: `__skill__:${skill.id}`, kind: "skill", title: `${skill.name} · SKILL.md`, skill,
 });
 
-export type WorkspaceTab = Node | ChatStartTab | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab | SkillTab;
+export type WorkspaceTab = Chat | FileNode | ChatStartTab | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab | SkillTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -237,8 +238,5 @@ export const isLauncherTab = (tab: WorkspaceTab | null | undefined): tab is Laun
 export const isWebTab = (tab: WorkspaceTab | null | undefined): tab is WebTab =>
   tab?.kind === "web";
 
-export const isNodeTab = (tab: WorkspaceTab | null | undefined): tab is Node =>
-  !!tab && (tab.kind === "chat" || tab.kind === "file" || tab.kind === "space");
-
-export const isOpenableSpace = (node: Node | null | undefined): node is Node =>
-  !!node && node.kind !== "space";
+export const isContentTab = (tab: WorkspaceTab | null | undefined): tab is (Chat | FileNode) =>
+  !!tab && (tab.kind === "chat" || tab.kind === "file" || tab.kind === "folder");

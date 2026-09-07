@@ -1,3 +1,4 @@
+import { type Rule, settingsApi } from "../../api/settings";
 // 规则:就地管理,全在输入框这一行完成,不进设置页。
 //
 // 只有两个概念:开关是开关,规则是内容。规则唯一的作用是写进提示词 ——
@@ -5,7 +6,6 @@
 // 关着是灰的,开着是亮的,不点开也知道现在规则生不生效。
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, Check, ChevronRight, GripVertical, Loader2, Plus, Shield, ShieldCheck, Trash2 } from "lucide-react";
-import { permissionApi, type Rule } from "../../lib/permission";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { Switch } from "../ui";
 
@@ -18,7 +18,7 @@ export function RulesControl({ on, onChange, quiet = false }: { on: boolean; onC
   const [error, setError] = useState("");
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const reload = () => { void permissionApi.listRules().then(setRules).catch(() => {}); };
+  const reload = () => { void settingsApi.listRules().then(setRules).catch(() => {}); };
   useEffect(() => { reload(); }, []);
   useEffect(() => { if (open) { reload(); setError(""); } }, [open]);
 
@@ -57,7 +57,7 @@ export function RulesControl({ on, onChange, quiet = false }: { on: boolean; onC
     const [moved] = next.splice(from, 1);
     next.splice(to > from ? to - 1 : to, 0, moved);
     setRules(next);
-    void permissionApi.reorderRules(next.map((r) => r.id)).catch(reload);
+    void settingsApi.reorderRules(next.map((r) => r.id)).catch(reload);
   };
   const startDrag = (e: React.PointerEvent, rule: Rule, index: number) => {
     if (e.button !== 0) return;
@@ -91,13 +91,13 @@ export function RulesControl({ on, onChange, quiet = false }: { on: boolean; onC
   };
 
   const toggleRule = (rule: Rule) => {
-    void permissionApi.updateRule(rule.id, { enabled: !rule.enabled }).then(reload).catch(() => {});
+    void settingsApi.updateRule(rule.id, { enabled: !rule.enabled }).then(reload).catch(() => {});
   };
   const add = () => {
     const text = draft.trim();
     if (!text || busy) return;
     setBusy(true); setError("");
-    void permissionApi.createRule(text)
+    void settingsApi.createRule(text)
       .then(() => { setDraft(""); reload(); })
       .catch((e) => setError(e?.message || "没能保存"))
       .finally(() => setBusy(false));
@@ -224,12 +224,12 @@ function RuleDetail({ rule, onBack, onSaved, onDeleted }: { rule: Rule | null; o
     if (!next || busy) return;
     if (next === rule.text) { onBack(); return; }
     setBusy(true);
-    void permissionApi.updateRule(rule.id, { text: next }).then(onSaved).catch((e) => { setError(e?.message || "没能保存"); setBusy(false); });
+    void settingsApi.updateRule(rule.id, { text: next }).then(onSaved).catch((e) => { setError(e?.message || "没能保存"); setBusy(false); });
   };
   const remove = () => {
     if (busy) return;
     setBusy(true);
-    void permissionApi.deleteRule(rule.id).then(onDeleted).catch((e) => { setError(e?.message || "没能删除"); setBusy(false); });
+    void settingsApi.deleteRule(rule.id).then(onDeleted).catch((e) => { setError(e?.message || "没能删除"); setBusy(false); });
   };
   return (
     <div className="absolute inset-0 bg-surface flex flex-col wb-slide-in">

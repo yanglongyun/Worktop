@@ -1,7 +1,7 @@
+import { type FileNode, filesApi } from "../../../api/files";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Node } from "../../../api";
-import { api } from "../../../api";
-import { ChevronRight, Folder, FileText, Bot, FileCode, FileJson, Image, Hash, FileType } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { fileIconFor, fileColorFor } from "../../files/icons";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 export type TreeControls = {
@@ -12,7 +12,7 @@ export type TreeControls = {
   setExpanded: (id: string, on: boolean) => void;
   // 创建
   creatingUnder: string | null;
-  creatingKind: "space" | "file";
+  creatingKind: "folder" | "file";
   draftTitle: string;
   setDraftTitle: (s: string) => void;
   commitCreate: () => void;
@@ -30,8 +30,8 @@ export type TreeControls = {
   multiSelectedIds: Set<string>;
   /** 剪切标记:进了剪贴板等待移动的行,半透明提示。 */
   cutIds: Set<string>;
-  /** 行注册表:渲染时登记 Node 对象,键盘操作按 id 反查。 */
-  registerNode: (n: Node) => void;
+  /** 行注册表:渲染时登记 FileNode 对象,键盘操作按 id 反查。 */
+  registerNode: (n: FileNode) => void;
   /** Git 标记:files = absPath→status(文件染色+字母),dirs = 含变更的目录(点标)。 */
   gitMarks: { files: Map<string, string>; dirs: Set<string> };
 };
@@ -45,23 +45,6 @@ const gitBadge = (status?: string): { color: string; letter: string } | null => 
   return { color: "text-warning", letter: "M" }; // modified / staged+modified / changed
 };
 
-// 按扩展名挑文件图标(VSCode 风)
-const fileIconFor = (title: string) => {
-  const ext = title.split(".").pop()?.toLowerCase() || "";
-  if (["ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "go", "rs", "java", "c", "cpp", "sh"].includes(ext)) return FileCode;
-  if (["html", "htm", "xml", "vue", "svelte", "css", "scss", "less"].includes(ext)) return FileCode;
-  if (ext === "json") return FileJson;
-  if (["md", "markdown"].includes(ext)) return Hash;
-  if (["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"].includes(ext)) return Image;
-  if (["txt", "log"].includes(ext)) return FileType;
-  return FileText;
-};
-
-const iconFor = (kind: Node["kind"], title?: string) =>
-  kind === "space" ? Folder : kind === "chat" ? Bot : title ? fileIconFor(title) : FileText;
-const colorFor = (kind: Node["kind"]) =>
-  kind === "space" ? "text-accent" : kind === "chat" ? "text-warning" : "text-text-faint";
-
 export function NodeRow({
   node,
   selectedId,
@@ -71,24 +54,24 @@ export function NodeRow({
   controls,
   depth = 0,
 }: {
-  node: Node;
+  node: FileNode;
   selectedId: string;
   /** 点击交给父级裁决:普通点击=选中(+文件夹展开),Cmd/Shift=多选,行为在 NodeTree。 */
-  onRowClick: (e: React.MouseEvent, n: Node) => void;
-  onContextMenu: (e: React.MouseEvent, n: Node) => void;
+  onRowClick: (e: React.MouseEvent, n: FileNode) => void;
+  onContextMenu: (e: React.MouseEvent, n: FileNode) => void;
   refreshKey: number;
   controls: TreeControls;
   depth?: number;
 }) {
-  const [children, setChildren] = useState<Node[]>([]);
+  const [children, setChildren] = useState<FileNode[]>([]);
   const [loaded, setLoaded] = useState(false);
-  controls.registerNode(node); // 键盘操作按 id 反查 Node(ref 写入,渲染期安全)
+  controls.registerNode(node); // 键盘操作按 id 反查 FileNode(ref 写入,渲染期安全)
 
-  const isContainer = node.kind === "space";
+  const isContainer = node.kind === "folder";
   const expanded = controls.expandedIds.has(node.id);
   const isRenaming = controls.renamingId === node.id;
   const isDragging = controls.activeId === node.id;
-  const dragDisabled = isRenaming || !!node.workspace;
+  const dragDisabled = isRenaming || !!node.isRoot;
 
   // dnd-kit
   const {
@@ -106,7 +89,7 @@ export function NodeRow({
 
   const loadChildren = useCallback(async () => {
     if (!isContainer) return;
-    const result = await api.listChildren(node.id);
+    const result = await filesApi.listChildren(node.id);
     setChildren(result.items || []);
     setLoaded(true);
   }, [node.id, isContainer]);
@@ -120,8 +103,8 @@ export function NodeRow({
   };
 
   const isSelected = selectedId === node.id || controls.multiSelectedIds.has(node.id);
-  const Icon = iconFor(node.kind, node.title);
-  const iconColor = colorFor(node.kind);
+  const Icon = fileIconFor(node.kind, node.title);
+  const iconColor = fileColorFor(node.kind);
   const badge = !isContainer ? gitBadge(controls.gitMarks.files.get(node.id)) : null;
   const dirDirty = isContainer && controls.gitMarks.dirs.has(node.id);
 
@@ -236,8 +219,8 @@ export function InlineCreateRow({ depth, controls }: { depth: number; controls: 
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const Icon = iconFor(controls.creatingKind);
-  const iconColor = colorFor(controls.creatingKind);
+  const Icon = fileIconFor(controls.creatingKind);
+  const iconColor = fileColorFor(controls.creatingKind);
 
   return (
     <div
@@ -261,5 +244,3 @@ export function InlineCreateRow({ depth, controls }: { depth: number; controls: 
     </div>
   );
 }
-
-export { iconFor, colorFor };

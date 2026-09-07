@@ -2,11 +2,11 @@ import http from "http";
 import { handleApi } from "./http/api/index.js";
 import { attachWs } from "./http/ws.js";
 import { serve } from "./http/static.js";
-import { startWatcher } from "./workspace/watcher.js";
+import { startWatcher } from "./files/watcher.js";
 import { isTrustedHost, isTrustedOrigin } from "./http/origin.js";
 import { track } from "./telemetry.js";
 import { seedPresetWidgets, sweepTrash } from "./widgets/registry.js";
-import { seedPresetSkills } from "./skills/skills.js";
+import { seedPresetSkills } from "./skills/registry.js";
 import { startWidgetSiteSweeper } from "./widgets/site.js";
 import { seedPresetApps, watchApps } from "./apps/registry.js";
 import { startAlwaysApps } from "./apps/supervisor.js";
@@ -36,7 +36,7 @@ const startServer = async (port = 9506) =>
     });
     attachWs(server, port);
     server.listen(port, "127.0.0.1", () => {
-      startWatcher(); // 工作区文件监听:磁盘上的任何变化 → 树自动刷新
+      startWatcher(); // 常用目录文件监听:磁盘上的任何变化 → 树自动刷新
       track("app_open"); // 匿名遥测(仅打包应用;设置可关,见 telemetry.ts)
       seedPresetApps();  // 出厂应用落地到应用的家 —— 之后就是用户自己的 app
       seedPresetWidgets();

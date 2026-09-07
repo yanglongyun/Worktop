@@ -1,4 +1,7 @@
-import type { Settings, SkillInfo, Node } from "../../api";
+import { type Settings } from "../../api/settings";
+import { type SkillInfo } from "../../api/skills";
+import { type Chat } from "../../api/chats";
+import { type FileNode } from "../../api/files";
 import { TabBar } from "./TabBar";
 import { TabContent } from "./TabContent";
 import { isTerminalTab, isWebTab, type TabActions, type WorkspaceGroupState } from "./types";
@@ -16,7 +19,7 @@ export type TabContentProps = {
   gitRefreshKey: number;
   onFileChange: (id: string, value: string) => void;
   onFileSaved: (id: string) => void;
-  onSelect: (n: Node) => void;
+  onSelect: (n: (Chat | FileNode)) => void;
   onOpenSkill: (skill: SkillInfo) => void;
   onOpenSettings: () => void;
   onSettingsSaved?: (settings: Settings) => void;

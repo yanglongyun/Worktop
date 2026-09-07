@@ -7,7 +7,6 @@
 //     助理最终文本无气泡全宽 markdown,悬停出现复制钮,最后一条常显。
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, FileText, PhoneCall, Sparkles } from "lucide-react";
-
 import { renderMarkdown } from "../../lib/markdown";
 import { TurnEntries, TurnFold, Working, type TurnEntry } from "./Process";
 import { type Row } from "./thread";

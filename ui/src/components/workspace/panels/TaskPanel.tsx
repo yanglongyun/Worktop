@@ -1,7 +1,9 @@
+import { EVENTS } from "../../../../../server/shared/events";
+import { type TaskInfo, appsApi } from "../../../api/apps";
+import { chatsApi } from "../../../api/chats";
 // 任务详情(标签页):应用触发的一次 agent 轮次,摊开看指令、回复、报错。
 import { useCallback, useEffect, useState } from "react";
 import { Activity } from "lucide-react";
-import { api, type TaskInfo } from "../../../api";
 import { MessageStream } from "../../chat/MessageStream";
 import { renderRows, type Row } from "../../chat/thread";
 import type { TaskTab } from "../types";
@@ -21,18 +23,18 @@ export function TaskPanel({ tab, socket }: { tab: TaskTab; socket: Socket }) {
   const [tick, setTick] = useState(0);
 
   const load = useCallback(() => {
-    void api.listTasks(200)
+    void appsApi.listTasks(200)
       .then((list) => setTask(list.find((t) => t.id === tab.taskId) || null))
       .catch(() => setTask(null));
     // 过程与会话同规格,直接读 messages 回放
-    void api.listMessages(tab.taskId)
+    void chatsApi.listMessages(tab.taskId)
       .then((r) => { setRows(renderRows(r.rows || [])); setTick((n) => n + 1); })
       .catch(() => {});
   }, [tab.taskId]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => socket.on("tasks_changed", load), [socket, load]);
   // 任务跑动时逐条落库,和会话同一个事件
-  useEffect(() => socket.on("conversation.input", (p: any) => { if (String(p?.chatId) === tab.taskId) load(); }), [socket, tab.taskId, load]);
+  useEffect(() => socket.on(EVENTS.INPUT, (p: any) => { if (String(p?.chatId) === tab.taskId) load(); }), [socket, tab.taskId, load]);
 
   if (task === undefined) {
     return <div className="flex-1 flex items-center justify-center text-[13px] text-text-faint">读取中…</div>;

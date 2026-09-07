@@ -1,6 +1,5 @@
+import { type FileNode, filesApi } from "../../api/files";
 import { useEffect, useRef, useState } from "react";
-import type { Node } from "../../api";
-import { api } from "../../api";
 import { CodeEditor } from "./CodeEditor";
 import { renderMarkdown } from "../../lib/markdown";
 import { Eye, Code2, FileQuestion } from "lucide-react";
@@ -22,7 +21,7 @@ export function FilePanel({
   onChange,
   onSaved,
 }: {
-  node: Node;
+  node: FileNode;
   draft?: string;
   refreshKey?: number;
   onChange: (value: string) => void;
@@ -33,7 +32,7 @@ export function FilePanel({
   const isPdf = ext === "pdf";
   const isMarkdown = ext === "md" || ext === "markdown";
   const isHtml = ext === "html" || ext === "htm";
-  const rawUrl = `/api/file/raw?id=${encodeURIComponent(node.id)}&v=${refreshKey}`;
+  const rawUrl = `/api/files/raw?id=${encodeURIComponent(node.id)}&v=${refreshKey}`;
 
   const [mdMode, setMdMode] = useState<"preview" | "edit">("preview");
   const [content, setContent] = useState<string>(draft ?? "");
@@ -50,7 +49,7 @@ export function FilePanel({
     let cancelled = false;
     if (draft != null) { setContent(draft); latest.current = draft; setInfo({ binary: false, tooLarge: false }); setLoaded(true); return; }
     setLoaded(false);
-    api.getNode(node.id)
+    filesApi.getNode(node.id)
       .then((r) => {
         if (cancelled) return;
         const n = r.item;
@@ -64,7 +63,7 @@ export function FilePanel({
   }, [node.id, refreshKey]);
 
   const save = async () => {
-    await api.updateNode(node.id, { content: latest.current });
+    await filesApi.updateNode(node.id, { content: latest.current });
     onSaved();
   };
 
@@ -129,7 +128,7 @@ export function FilePanel({
             // 按路径服务,iframe 内相对的 styles.css/js 能正确解析;沙箱里跑,与父页隔离
             <iframe
               key={refreshKey}
-              src={`/api/fs${encodeURI(node.id)}`}
+              src={`/api/files/local${encodeURI(node.id)}`}
               title={node.title}
               sandbox="allow-scripts allow-popups allow-forms"
               className="flex-1 min-h-0 w-full border-0 bg-surface"

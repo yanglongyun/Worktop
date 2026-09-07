@@ -1,4 +1,4 @@
-// /host/* —— 宿主开放给 app 的契约面。**token 即身份**,路径里没有 app id。
+// /apps/* —— 宿主开放给 app 的契约面。**token 即身份**,路径里没有 app id。
 //
 // 一条原则筛出这几个端点:宿主只提供 app 自己拿不到的东西 —— 模型、agent、产品界面。
 // 文件、网络、进程它本来就有,不需要宿主转手。
@@ -6,7 +6,7 @@
 // 两道闸,顺序不能反:先认 token(你是谁),再查 manifest.permissions(你被允许什么)。
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { complete } from "../ai/complete.js";
-import { getSettings } from "../settings.js";
+import { getSettings } from "../settings/store.js";
 import { emit } from "../bus.js";
 import { getApp } from "./registry.js";
 import { identifyApp, touchApp } from "./supervisor.js";
@@ -25,14 +25,14 @@ const runtime = () => {
   return { responsesUrl: s.apiUrl, apiKey: s.apiKey, model: s.model };
 };
 
-/** 返回 true = 这个请求已经由 /host/* 处理掉了。 */
-export const handleHostRoutes = async (
+/** 返回 true = 这个请求已经由 /apps/* 处理掉了。 */
+export const handleAppHostRoutes = async (
   req: IncomingMessage,
   res: ServerResponse,
   pathname: string,
 ): Promise<boolean> => {
-  if (!pathname.startsWith("/host/")) return false;
-  const path = pathname.slice("/host".length);
+  if (!pathname.startsWith("/apps/")) return false;
+  const path = pathname.slice("/apps".length);
 
   const appId = identifyApp(bearer(req));
   const app = appId ? getApp(appId) : null;

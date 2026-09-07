@@ -1,9 +1,9 @@
+import { browserApi } from "../api/browser";
 // 「从浏览器导入」的共享状态与调用。
 //
 // 三个地方都要用它、且必须口径一致:网页标签顶部的引导条、⋯ 菜单、设置页。
 // 导入过或用户主动关掉过,引导条就不再出现 —— 但菜单和设置页的入口永远在
 // (换了 Chrome 账号、cookie 过期,都需要能再导一次)。
-import { api } from "../api";
 
 const STATE_KEY = "worktop.chromeImport.state";
 
@@ -50,7 +50,7 @@ export const importFromChrome = async (choice: ImportChoice): Promise<ImportResu
   // 文件夹:同一层里同名的复用 —— 再导一次不会多出一份「书签栏」。
   let bookmarks = 0, folders = 0;
   if (choice.bookmarks && result.bookmarks.length) {
-    const existing = await api.listSites().catch(() => []);
+    const existing = await browserApi.listBookmarks().catch(() => []);
     const before = new Set(existing.map((site) => site.id));
     const added = new Set<string>();
     const folderAt = new Map<string, string>(); // `${parent}\u0000${title}` → id
@@ -62,12 +62,12 @@ export const importFromChrome = async (choice: ImportChoice): Promise<ImportResu
             const key = `${parentId || ""}\u0000${node.title}`;
             let id = folderAt.get(key);
             if (!id) {
-              const folder = await api.createSiteFolder({ title: node.title, parentId });
+              const folder = await browserApi.createBookmarkFolder({ title: node.title, parentId });
               id = folder.id; folderAt.set(key, id); folders += 1;
             }
             await walk(node.children, id);
           } else if (node.url) {
-            const site = await api.createSite({ title: node.title, url: node.url, parentId });
+            const site = await browserApi.createBookmark({ title: node.title, url: node.url, parentId });
             if (!site || before.has(site.id) || added.has(site.id)) continue;
             added.add(site.id);
             bookmarks += 1;
@@ -81,7 +81,7 @@ export const importFromChrome = async (choice: ImportChoice): Promise<ImportResu
   // 密码:交给宿主加密落库,服务端按 host+账号+密码 去重
   let passwordsAdded = 0;
   if (choice.passwords && result.passwords?.length) {
-    try { passwordsAdded = await api.importPasswords(result.passwords); } catch { /* 钥匙串拿不到时导不了,界面会看到 0 */ }
+    try { passwordsAdded = await browserApi.importPasswords(result.passwords); } catch { /* 钥匙串拿不到时导不了,界面会看到 0 */ }
   }
 
   markImported();

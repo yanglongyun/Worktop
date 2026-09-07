@@ -1,7 +1,7 @@
-// 任务面板:应用替你干的活(应用调 /host/ai/agent 触发的 agent 轮次)。
+import { type TaskInfo, appsApi } from "../../../api/apps";
+// 任务面板:应用替你干的活(应用调 /apps/ai/agent 触发的 agent 轮次)。
 // 与会话分开 —— 那是你自己在说话,这是应用在后台替你跑。
 import { useCallback, useEffect, useState } from "react";
-import { api, type TaskInfo } from "../../../api";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 
@@ -27,7 +27,7 @@ export function TasksPanel({ socket, onOpenTask }: { socket: Socket; onOpenTask:
   const [tasks, setTasks] = useState<TaskInfo[] | null>(null);
 
   const load = useCallback(() => {
-    void api.listTasks().then(setTasks).catch(() => setTasks([]));
+    void appsApi.listTasks().then(setTasks).catch(() => setTasks([]));
   }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => socket.on("tasks_changed", load), [socket, load]);

@@ -1,6 +1,6 @@
 // 任务存取:应用触发的 agent 轮次。
 // 记录的过程在 messages 里(task.id 就是那段会话的 id),这里只记发起方与终局。
-import { getDb } from "../db.js";
+import { getDb } from "../database/connection.js";
 
 type TaskStatus = "running" | "done" | "error" | "aborted";
 

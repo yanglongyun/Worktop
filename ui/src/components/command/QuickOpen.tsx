@@ -1,6 +1,8 @@
+import { type Chat, chatsApi } from "../../api/chats";
+import { type FileNode, filesApi } from "../../api/files";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type Node } from "../../api";
-import { iconFor, colorFor } from "../sidebar/panels/NodeRow";
+import { Bot } from "lucide-react";
+import { fileIconFor, fileColorFor } from "../files/icons";
 import { fuzzy } from "../../lib/fuzzy";
 
 // 快速打开(⌘P):模糊搜索整棵树,回车打开
@@ -8,10 +10,10 @@ export function QuickOpen({
   onPick,
   onClose,
 }: {
-  onPick: (n: Node) => void;
+  onPick: (n: (Chat | FileNode)) => void;
   onClose: () => void;
 }) {
-  const [all, setAll] = useState<Node[]>([]);
+  const [all, setAll] = useState<(Chat | FileNode)[]>([]);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -20,8 +22,8 @@ export function QuickOpen({
     // 只列可打开的(对话 + 文件);空间只在树里展开,不开标签。
     // 对话已不在树上,单独拉会话列表并入
     Promise.all([
-      api.listAllNodes().then((r) => (r.items || []).filter((n) => n.kind === "file")).catch(() => [] as Node[]),
-      api.listChats().then((r) => r.chats).catch(() => [] as Node[]),
+      filesApi.listAllNodes().then((r) => (r.items || []).filter((n) => n.kind === "file")).catch(() => [] as (Chat | FileNode)[]),
+      chatsApi.listChats().then((r) => r.chats).catch(() => [] as (Chat | FileNode)[]),
     ]).then(([files, chats]) => setAll([...chats, ...files]));
     inputRef.current?.focus();
   }, []);
@@ -29,14 +31,14 @@ export function QuickOpen({
   const results = useMemo(() => {
     const scored = all
       .map((n) => ({ n, s: fuzzy(q, n.title) }))
-      .filter((x) => x.s !== null) as { n: Node; s: number }[];
+      .filter((x) => x.s !== null) as { n: (Chat | FileNode); s: number }[];
     scored.sort((a, b) => b.s - a.s || a.n.title.localeCompare(b.n.title));
     return scored.slice(0, 50).map((x) => x.n);
   }, [all, q]);
 
   useEffect(() => { setSel(0); }, [q]);
 
-  const choose = (n?: Node) => {
+  const choose = (n?: (Chat | FileNode)) => {
     const target = n || results[sel];
     if (target) { onPick(target); onClose(); }
   };
@@ -67,7 +69,7 @@ export function QuickOpen({
             <div className="px-4 py-6 text-center text-[13px] text-text-faint">无匹配</div>
           )}
           {results.map((n, i) => {
-            const Icon = iconFor(n.kind, n.title);
+            const Icon = n.kind === "chat" ? Bot : fileIconFor(n.kind, n.title);
             return (
               <button
                 key={n.id}
@@ -78,7 +80,7 @@ export function QuickOpen({
                   i === sel ? "bg-accent-soft" : "hover:bg-bg-hover",
                 ].join(" ")}
               >
-                <Icon size={14} className={`shrink-0 ${colorFor(n.kind)}`} />
+                <Icon size={14} className={`shrink-0 ${n.kind === "chat" ? "text-warning" : fileColorFor(n.kind)}`} />
                 <span className="text-[14px] text-text truncate">{n.title}</span>
               </button>
             );

@@ -1,5 +1,5 @@
+import { type SkillInfo, skillsApi } from "../../../api/skills";
 import { useEffect, useState } from "react";
-import { api, type SkillInfo } from "../../../api";
 import { renderMarkdown } from "../../../lib/markdown";
 
 export function SkillDocumentPanel({ skill }: { skill: SkillInfo }) {
@@ -9,7 +9,7 @@ export function SkillDocumentPanel({ skill }: { skill: SkillInfo }) {
   useEffect(() => {
     let active = true;
     setError("");
-    void api.skillDoc(skill.id).then((result) => { if (active) setContent(result.content); })
+    void skillsApi.skillDoc(skill.id).then((result) => { if (active) setContent(result.content); })
       .catch((e) => { if (active) setError(e instanceof Error ? e.message : "无法读取 SKILL.md"); });
     return () => { active = false; };
   }, [skill.id, attempt]);

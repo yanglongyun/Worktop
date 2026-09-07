@@ -1,7 +1,7 @@
 const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
     .then((r) => r.json());
-const sql = (q, params = []) => post("/_wt/sql", { sql: q, params });
+const sql = (q, params = []) => post("/widgets/sql", { sql: q, params });
 const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 
 await sql(`CREATE TABLE IF NOT EXISTS events (
@@ -37,7 +37,7 @@ const loadYear = async (year) => {
   if (!data) {
     for (const host of ["cdn.jsdelivr.net", "fastly.jsdelivr.net"]) {
       try {
-        const r = await post("/_wt/http", { url: `https://${host}/gh/NateScarlet/holiday-cn@master/${year}.json` });
+        const r = await post("/widgets/http", { url: `https://${host}/gh/NateScarlet/holiday-cn@master/${year}.json` });
         if (!r.ok || r.status !== 200) continue;
         data = JSON.parse(r.text).days || [];
         localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), days: data }));

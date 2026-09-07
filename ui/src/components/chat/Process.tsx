@@ -7,7 +7,6 @@ import {
   ChevronRight, FilePlus2, FileText, Globe, Loader2,
   Pencil, Play, Sparkles, Terminal,
 } from "lucide-react";
-
 import { renderMarkdown } from "../../lib/markdown";
 import type { Row } from "./thread";
 

@@ -1,5 +1,5 @@
 // 网站图标:优先页面上报的真实 favicon(Electron webview 的 page-favicon-updated),
-// 退 /api/favicon 代理(server 直连站点抓取+缓存,不依赖第三方服务),再退 Globe。
+// 退 /api/browser/favicon 代理(server 直连站点抓取+缓存,不依赖第三方服务),再退 Globe。
 import { useEffect, useState } from "react";
 import { Globe } from "lucide-react";
 
@@ -11,7 +11,7 @@ export function Favicon({ url, override, size = 14, className = "" }: {
   size?: number;
   className?: string;
 }) {
-  const candidates = [override, url ? `/api/favicon?url=${encodeURIComponent(url)}` : ""].filter(Boolean) as string[];
+  const candidates = [override, url ? `/api/browser/favicon?url=${encodeURIComponent(url)}` : ""].filter(Boolean) as string[];
   const [idx, setIdx] = useState(0);
   useEffect(() => { setIdx(0); }, [override, url]);
 

@@ -1,16 +1,19 @@
+import { fileIconFor, fileColorFor } from "../../files/icons";
+import { type GitRepositoryStatus, gitApi } from "../../../api/git";
+import { type FileNode, filesApi } from "../../../api/files";
+import { systemApi } from "../../../api/system";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GitRepositoryStatus, Node } from "../../../api";
-import { api } from "../../../api";
-import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "./NodeRow";
+import { NodeRow, InlineCreateRow, type TreeControls } from "./NodeRow";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Folder, FolderPlus, FolderOpen, FileText, Trash2, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste, Plus } from "lucide-react";
+import { Folder, FolderPlus, FolderOpen, FileText, Trash2, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
 import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import { useTreeDnd, ROOT_ID } from "./useTreeDnd";
-import { AddWorkspaceDialog } from "./AddWorkspaceDialog";
+import { AddRootDialog } from "./AddRootDialog";
 import { PanelEmptyState } from "./PanelEmptyState";
+import { PanelCreateAction } from "./PanelCreateAction";
 
 // 文件面板:真实文件系统的树。多选/键盘/剪贴板/拖拽/Git 染色/筛选都内聚在此;
 // 宿主(PanelHost)只负责装卸与显隐 —— 本面板常驻挂载,展开集/多选等重状态跨切换保活。
@@ -27,20 +30,20 @@ export function FilesPanel({
   /** 当前是否为激活面板:控制显隐与键盘/Git 轮询的闸门(组件本身常驻)。 */
   active: boolean;
   selectedId: string;
-  onSelect: (n: Node | null) => void;
-  onOpenSide?: (n: Node) => void;
-  onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
+  onSelect: (n: FileNode | null) => void;
+  onOpenSide?: (n: FileNode) => void;
+  onOpenTerminal?: (n: FileNode, opts?: { command?: string; titlePrefix?: string }) => void;
   onOpenGit?: (repo: GitRepositoryStatus) => void;
   refreshKey: number;
   onChanged?: () => void;
 }) {
-  const [roots, setRoots] = useState<Node[]>([]);
-  const [addWorkspaceOpen, setAddWorkspaceOpen] = useState(false);
-  const [workspacePathDraft, setWorkspacePathDraft] = useState("");
-  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const [addingWorkspace, setAddingWorkspace] = useState(false);
-  const [pickingWorkspace, setPickingWorkspace] = useState(false);
-  const autoExpandedWorkspaces = useRef<Set<string>>(new Set());
+  const [roots, setRoots] = useState<FileNode[]>([]);
+  const [addRootOpen, setAddRootOpen] = useState(false);
+  const [rootPathDraft, setRootPathDraft] = useState("");
+  const [rootError, setRootError] = useState<string | null>(null);
+  const [addingRoot, setAddingRoot] = useState(false);
+  const [pickingDirectory, setPickingDirectory] = useState(false);
+  const autoExpandedRoots = useRef<Set<string>>(new Set());
 
   // 展开集
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -62,7 +65,7 @@ export function FilesPanel({
   const pruneNested = (ids: string[]) =>
     ids.filter((id) => !ids.some((other) => other !== id && id.startsWith(other + "/")));
 
-  const handleRowClick = (e: React.MouseEvent, node: Node) => {
+  const handleRowClick = (e: React.MouseEvent, node: FileNode) => {
     if (e.metaKey || e.ctrlKey) {
       // 点选切换;从单选进入多选时把当前选中项一并带上
       setMultiSel((prev) => {
@@ -89,15 +92,14 @@ export function FilesPanel({
     anchorRef.current = node.id;
     clearMulti();
     handleSelect(node);
-    if (node.kind === "space") toggleExpand(node.id);
+    if (node.kind === "folder") toggleExpand(node.id);
   };
 
   useEffect(() => { clearMulti(); }, [active, clearMulti]);
 
-
   // 创建
   const [creatingUnder, setCreatingUnder] = useState<string | null>(null);
-  const [creatingKind, setCreatingKind] = useState<"space" | "file">("space");
+  const [creatingKind, setCreatingKind] = useState<"folder" | "file">("folder");
   const [draftTitle, setDraftTitle] = useState("");
 
   // 重命名
@@ -108,7 +110,7 @@ export function FilesPanel({
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[]; nodeId?: string } | null>(null);
 
   const load = useCallback(async () => {
-    const result = await api.listRoots();
+    const result = await filesApi.listRoots();
     setRoots(result.items || []);
   }, []);
 
@@ -123,9 +125,9 @@ export function FilesPanel({
   });
 
   // ── 键盘与剪贴板(资源管理器快捷键)──
-  // 行注册表:渲染时把 Node 对象按 id 登记,键盘操作按 anchor 查对象
-  const nodesRef = useRef(new Map<string, Node>());
-  const registerNode = useCallback((n: Node) => { nodesRef.current.set(n.id, n); }, []);
+  // 行注册表:渲染时把 FileNode 对象按 id 登记,键盘操作按 anchor 查对象
+  const nodesRef = useRef(new Map<string, FileNode>());
+  const registerNode = useCallback((n: FileNode) => { nodesRef.current.set(n.id, n); }, []);
   /** 内部文件剪贴板:复制(可反复粘贴)/ 剪切(粘贴即移动,行半透明标记)。 */
   const clipboardRef = useRef<{ ids: string[]; cut: boolean } | null>(null);
   const [cutIds, setCutIds] = useState<Set<string>>(new Set());
@@ -138,15 +140,15 @@ export function FilesPanel({
   const deleteIds = useCallback(async (rawIds: string[]) => {
     const ids = pruneNested(rawIds.filter(Boolean));
     if (!ids.length) return;
-    const workspaces = ids.filter((id) => rootsRef.current.some((r) => r.id === id && r.workspace));
-    const normal = ids.filter((id) => !workspaces.includes(id));
-    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是已添加的文件夹:只从列表移除,不删磁盘文件。` : "";
+    const selectedRoots = ids.filter((id) => rootsRef.current.some((r) => r.id === id && r.isRoot));
+    const normal = ids.filter((id) => !selectedRoots.includes(id));
+    const hint = selectedRoots.length ? `\n其中 ${selectedRoots.length} 个是已添加的文件夹:只从列表移除,不删磁盘文件。` : "";
     const label = rawIds.length === 1
       ? `「${nodesRef.current.get(rawIds[0])?.title || rawIds[0].split("/").pop()}」`
       : `选中的 ${rawIds.length} 项`;
     if (!(await dialog.confirm(`删除${label}?文件夹内的内容会一起删除。${hint}`, { danger: true, confirmText: "删除" }))) return;
-    for (const id of workspaces) await api.removeWorkspace(id).catch(() => {});
-    for (const id of normal) await api.deleteNode(id).catch(() => {});
+    for (const id of selectedRoots) await filesApi.removeRoot(id).catch(() => {});
+    for (const id of normal) await filesApi.deleteNode(id).catch(() => {});
     if (rawIds.includes(selectedIdRef.current)) onSelect(null);
     clearMulti();
     refresh();
@@ -155,7 +157,7 @@ export function FilesPanel({
   /** 复制/剪切当前选择进内部剪贴板(工作区根除外)。 */
   const copySelection = useCallback((cut: boolean) => {
     const ids = multiSelRef.current.size ? [...multiSelRef.current] : anchorRef.current ? [anchorRef.current] : [];
-    const usable = ids.filter((id) => !rootsRef.current.some((r) => r.id === id && r.workspace));
+    const usable = ids.filter((id) => !rootsRef.current.some((r) => r.id === id && r.isRoot));
     if (!usable.length) return;
     clipboardRef.current = { ids: usable, cut };
     setCutIds(cut ? new Set(usable) : new Set());
@@ -167,20 +169,20 @@ export function FilesPanel({
     if (!clip?.ids.length) return;
     const anchorNode = anchorRef.current ? nodesRef.current.get(anchorRef.current) : null;
     const targetDir = anchorNode
-      ? anchorNode.kind === "space" ? anchorNode.id : (anchorNode.parent_id || rootsRef.current[0]?.id)
+      ? anchorNode.kind === "folder" ? anchorNode.id : (anchorNode.parent_id || rootsRef.current[0]?.id)
       : rootsRef.current[0]?.id;
     if (!targetDir) return;
     const ids = pruneNested(clip.ids).filter((id) => !(targetDir === id || targetDir.startsWith(id + "/")));
     for (const id of ids) {
       if (clip.cut) {
-        try { await api.moveNode(id, targetDir); }
+        try { await filesApi.moveNode(id, targetDir); }
         catch (e: any) {
           if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。是否覆盖?被覆盖的文件将移入废纸篓。`, { danger: true, confirmText: "覆盖" }))) {
-            await api.moveNode(id, targetDir, true).catch((err: any) => void dialog.alert(err?.message || "移动失败"));
+            await filesApi.moveNode(id, targetDir, true).catch((err: any) => void dialog.alert(err?.message || "移动失败"));
           } else if (!/已有同名/.test(e?.message || "")) void dialog.alert(e?.message || "移动失败");
         }
       } else {
-        await api.copyNode(id, targetDir).catch((e: any) => void dialog.alert(e.message || "复制失败"));
+        await filesApi.copyNode(id, targetDir).catch((e: any) => void dialog.alert(e.message || "复制失败"));
       }
     }
     if (clip.cut) { clipboardRef.current = null; setCutIds(new Set()); }
@@ -189,7 +191,7 @@ export function FilesPanel({
   }, [refresh, setExpanded]);
 
   // ── 外部拖入导入(从 Finder 拖文件/文件夹进树)──
-  // webkitGetAsEntry 递归展开目录;内容经 FileReader 读出走 /api/tree/import 落盘。
+  // webkitGetAsEntry 递归展开目录;内容经 FileReader 读出走 /api/files/tree/import 落盘。
   const traverseEntry = async (entry: any, prefix: string, out: { file: File; rel: string }[]) => {
     if (!entry || out.length >= 200) return;
     if (entry.isFile) {
@@ -218,7 +220,7 @@ export function FilesPanel({
     // 落点:悬停行是文件夹 → 进它;是文件 → 进它的父级;空白处 → 第一个工作区
     const rowEl = (e.target as HTMLElement).closest?.("[data-nid]");
     const node = rowEl ? nodesRef.current.get(String(rowEl.getAttribute("data-nid"))) : null;
-    const parentId = node ? (node.kind === "space" ? node.id : node.parent_id || undefined) : rootsRef.current[0]?.id;
+    const parentId = node ? (node.kind === "folder" ? node.id : node.parent_id || undefined) : rootsRef.current[0]?.id;
     const out: { file: File; rel: string }[] = [];
     for (const item of [...(e.dataTransfer.items || [])]) {
       const entry = (item as any).webkitGetAsEntry?.();
@@ -236,7 +238,7 @@ export function FilesPanel({
           r.onload = () => resolve(String(r.result).split(",")[1] || "");
           r.readAsDataURL(file);
         });
-        await api.importFile({ parentId, relPath: rel, dataBase64 });
+        await filesApi.importFile({ parentId, relPath: rel, dataBase64 });
         done += 1;
       } catch { failed += 1; }
     }
@@ -250,7 +252,7 @@ export function FilesPanel({
   useEffect(() => {
     if (!active) return;
     let stale = false;
-    api.gitStatus().then((r) => {
+    gitApi.gitStatus().then((r) => {
       if (stale) return;
       const files = new Map<string, string>();
       const dirs = new Set<string>();
@@ -269,7 +271,7 @@ export function FilesPanel({
         }
       };
       for (const repository of r.repositories || []) {
-        const base = repository.root || repository.workspacePath;
+        const base = repository.root || repository.fileRootPath;
         for (const f of repository.files || []) mark(`${base}/${unquote(f.path)}`, f.status);
       }
       setGitMarks({ files, dirs });
@@ -277,11 +279,10 @@ export function FilesPanel({
     return () => { stale = true; };
   }, [refreshKey, active]);
 
-
   /** 结果行的路径列:相对所属工作区,而不是甩一整条绝对路径。 */
 
   // 每渲染刷新一次的「最新函数」出口,键盘 handler 通过它调用,不吃过期闭包
-  const keyApiRef = useRef({ handleSelect: (_n: Node | null) => {}, startRename: (_n: Node) => {}, toggleExpand: (_id: string) => {}, setExpanded: (_id: string, _on: boolean) => {} });
+  const keyApiRef = useRef({ handleSelect: (_n: FileNode | null) => {}, startRename: (_n: FileNode) => {}, toggleExpand: (_id: string) => {}, setExpanded: (_id: string, _on: boolean) => {} });
 
   useEffect(() => {
     const isTyping = (target: EventTarget | null) => {
@@ -333,7 +334,7 @@ export function FilesPanel({
         const node = nodesRef.current.get(anchor);
         if (!node) return;
         e.preventDefault();
-        if (node.kind === "space") keyApiRef.current.toggleExpand(node.id);
+        if (node.kind === "folder") keyApiRef.current.toggleExpand(node.id);
         else keyApiRef.current.handleSelect(node);
         return;
       }
@@ -359,12 +360,12 @@ export function FilesPanel({
         if (!anchor) return;
         const node = nodesRef.current.get(anchor);
         if (key === "ArrowRight") {
-          if (node?.kind === "space" && !expandedRef.current.has(anchor)) keyApiRef.current.setExpanded(anchor, true);
+          if (node?.kind === "folder" && !expandedRef.current.has(anchor)) keyApiRef.current.setExpanded(anchor, true);
           else if (cur >= 0 && cur < order.length - 1) focusRow(order[cur + 1]);
           return;
         }
         // ArrowLeft:展开的文件夹先收起;否则跳到父级
-        if (node?.kind === "space" && expandedRef.current.has(anchor)) { keyApiRef.current.setExpanded(anchor, false); return; }
+        if (node?.kind === "folder" && expandedRef.current.has(anchor)) { keyApiRef.current.setExpanded(anchor, false); return; }
         const parent = anchor.slice(0, anchor.lastIndexOf("/"));
         if (order.includes(parent)) focusRow(parent);
         return;
@@ -377,9 +378,9 @@ export function FilesPanel({
   useEffect(() => { load(); }, [load, refreshKey]);
 
   useEffect(() => {
-    const nextIds = roots.filter((root) => root.workspace && !autoExpandedWorkspaces.current.has(root.id)).map((root) => root.id);
+    const nextIds = roots.filter((root) => root.isRoot && !autoExpandedRoots.current.has(root.id)).map((root) => root.id);
     if (!nextIds.length) return;
-    nextIds.forEach((id) => autoExpandedWorkspaces.current.add(id));
+    nextIds.forEach((id) => autoExpandedRoots.current.add(id));
     setExpandedIds((current) => {
       const next = new Set(current);
       nextIds.forEach((id) => next.add(id));
@@ -388,7 +389,7 @@ export function FilesPanel({
   }, [roots]);
 
   // ── 创建 ──
-  const startCreate = (parentId: string | null, kind: "space" | "file") => {
+  const startCreate = (parentId: string | null, kind: "folder" | "file") => {
     setCreatingUnder(parentId === null ? "" : parentId);
     setCreatingKind(kind);
     setDraftTitle("");
@@ -399,7 +400,7 @@ export function FilesPanel({
     if (creatingUnder === null) return;
     if (!title) { setCreatingUnder(null); setDraftTitle(""); return; }
     const parentId = creatingUnder === "" ? undefined : creatingUnder;
-    const result = await api.createNode({ kind: creatingKind, title, parentId });
+    const result = await filesApi.createNode({ kind: creatingKind, title, parentId });
     setCreatingUnder(null);
     setDraftTitle("");
     handleSelect(result.item);
@@ -407,62 +408,62 @@ export function FilesPanel({
   };
   const cancelCreate = () => { setCreatingUnder(null); setDraftTitle(""); };
 
-  const openAddWorkspace = () => {
-    setWorkspacePathDraft("");
-    setWorkspaceError(null);
-    setAddWorkspaceOpen(true);
+  const openAddRoot = () => {
+    setRootPathDraft("");
+    setRootError(null);
+    setAddRootOpen(true);
   };
   useEffect(() => {
-    const open = () => openAddWorkspace();
-    window.addEventListener("worktop:add-workspace", open);
-    return () => window.removeEventListener("worktop:add-workspace", open);
+    const open = () => openAddRoot();
+    window.addEventListener("worktop:add-root", open);
+    return () => window.removeEventListener("worktop:add-root", open);
   }, []);
 
-  const addWorkspace = async () => {
-    const workspacePath = workspacePathDraft.trim();
-    if (!workspacePath) return;
-    setAddingWorkspace(true);
-    setWorkspaceError(null);
+  const addRoot = async () => {
+    const rootPath = rootPathDraft.trim();
+    if (!rootPath) return;
+    setAddingRoot(true);
+    setRootError(null);
     try {
-      const result = await api.addWorkspace({ path: workspacePath });
+      const result = await filesApi.addRoot({ path: rootPath });
       setExpanded(result.item.id, true);
       handleSelect(result.item);
-      setAddWorkspaceOpen(false);
-      setWorkspacePathDraft("");
+      setAddRootOpen(false);
+      setRootPathDraft("");
       refresh();
     } catch (e: any) {
-      setWorkspaceError(e.message || "添加文件夹失败");
+      setRootError(e.message || "添加文件夹失败");
     } finally {
-      setAddingWorkspace(false);
+      setAddingRoot(false);
     }
   };
 
-  const pickWorkspace = async () => {
-    setPickingWorkspace(true);
-    setWorkspaceError(null);
+  const pickDirectory = async () => {
+    setPickingDirectory(true);
+    setRootError(null);
     try {
-      const result = await api.pickWorkspaceDirectory();
-      if (result.path) setWorkspacePathDraft(result.path);
+      const result = await systemApi.pickDirectory();
+      if (result.path) setRootPathDraft(result.path);
     } catch (e: any) {
-      setWorkspaceError(e.message || "选择目录失败");
+      setRootError(e.message || "选择目录失败");
     } finally {
-      setPickingWorkspace(false);
+      setPickingDirectory(false);
     }
   };
 
   // ── 重命名 ──
-  const startRename = (n: Node) => { setRenamingId(n.id); setRenameDraft(n.title); };
+  const startRename = (n: FileNode) => { setRenamingId(n.id); setRenameDraft(n.title); };
   const commitRename = async () => {
     const id = renamingId;
     const title = renameDraft.trim();
     setRenamingId(null);
     if (!id || !title) return;
     try {
-      await api.updateNode(id, { title });
+      await filesApi.updateNode(id, { title });
     } catch (e: any) {
       // 重名:确认后覆盖(旧的进废纸篓),否则放弃
       if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。是否覆盖?被覆盖的文件将移入废纸篓。`, { danger: true, confirmText: "覆盖" }))) {
-        await api.updateNode(id, { title, overwrite: true }).catch((err: any) => void dialog.alert(err?.message || "重命名失败"));
+        await filesApi.updateNode(id, { title, overwrite: true }).catch((err: any) => void dialog.alert(err?.message || "重命名失败"));
       } else if (!/已有同名/.test(e?.message || "")) {
         void dialog.alert(e?.message || "重命名失败");
       }
@@ -472,7 +473,7 @@ export function FilesPanel({
   const cancelRename = () => { setRenamingId(null); setRenameDraft(""); };
 
   // ── 右键 ──
-  const onNodeContext = async (e: React.MouseEvent, node: Node) => {
+  const onNodeContext = async (e: React.MouseEvent, node: FileNode) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -504,30 +505,30 @@ export function FilesPanel({
 
     const items: MenuItem[] = [];
     let gitRepo: GitRepositoryStatus | null = null;
-    if (node.kind === "space" && onOpenGit) {
+    if (node.kind === "folder" && onOpenGit) {
       try {
-        gitRepo = (await api.gitRepository(node.id)).repository;
+        gitRepo = (await gitApi.gitRepository(node.id)).repository;
       } catch {
         gitRepo = null;
       }
     }
-    if (node.kind === "space") {
+    if (node.kind === "folder") {
       items.push(
         { label: "新建文件夹", icon: <Folder size={13} className="text-accent" />,
-          onClick: () => startCreate(node.id, "space") },
+          onClick: () => startCreate(node.id, "folder") },
         { label: "新建文件", icon: <FileText size={13} className="text-text-faint" />,
           onClick: () => startCreate(node.id, "file") },
         "divider",
       );
     }
     const copyText = node.id;
-    if (node.kind !== "space" && onOpenSide) {
+    if (node.kind !== "folder" && onOpenSide) {
       items.push(
         { label: "打开到侧边", icon: <PanelRight size={13} />, onClick: () => onOpenSide(node) },
         "divider",
       );
     }
-    if (!node.workspace) {
+    if (!node.isRoot) {
       items.push(
         { label: "复制", icon: <Copy size={13} />,
           onClick: () => { clipboardRef.current = { ids: [node.id], cut: false }; setCutIds(new Set()); } },
@@ -553,7 +554,7 @@ export function FilesPanel({
           }
         },
       },
-      { label: REVEAL_LABEL, icon: <FolderOpen size={13} />, onClick: () => { api.revealNode(node.id).catch(() => {}); } },
+      { label: REVEAL_LABEL, icon: <FolderOpen size={13} />, onClick: () => { systemApi.revealNode(node.id).catch(() => {}); } },
       "divider",
       { label: "打开终端", icon: <Terminal size={13} className="text-success" />,
         onClick: () => onOpenTerminal?.(node), disabled: !onOpenTerminal },
@@ -574,14 +575,14 @@ export function FilesPanel({
       );
     }
     items.push(
-      { label: node.workspace ? "移除文件夹" : "删除", icon: <Trash2 size={13} />, danger: true,
+      { label: node.isRoot ? "移除文件夹" : "删除", icon: <Trash2 size={13} />, danger: true,
         onClick: async () => {
-          if (node.workspace) {
+          if (node.isRoot) {
             if (!(await dialog.confirm(`移除文件夹「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
-            await api.removeWorkspace(node.id);
+            await filesApi.removeRoot(node.id);
           } else {
-            if (!(await dialog.confirm(`删除「${node.title}」?${node.kind === "space" ? "\n里面所有内容也会一起删除。" : ""}`, { danger: true, confirmText: "删除" }))) return;
-            await api.deleteNode(node.id);
+            if (!(await dialog.confirm(`删除「${node.title}」?${node.kind === "folder" ? "\n里面所有内容也会一起删除。" : ""}`, { danger: true, confirmText: "删除" }))) return;
+            await filesApi.deleteNode(node.id);
           }
           if (selectedId === node.id) onSelect(null);
           refresh();
@@ -596,14 +597,13 @@ export function FilesPanel({
     setMenu({
       x: e.clientX, y: e.clientY,
       items: [
-        { label: "添加文件夹", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddWorkspace },
+        { label: "添加文件夹", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddRoot },
       ],
     });
   };
 
   // 选中直接上抛(移动端「选中即收抽屉」由宿主包装)
   const handleSelect = onSelect;
-
 
   // 键盘 handler 的最新函数出口(handler 只挂一次,经 ref 调最新实现)
   keyApiRef.current = { handleSelect, startRename, toggleExpand, setExpanded };
@@ -625,15 +625,7 @@ export function FilesPanel({
       <div className={active ? "flex flex-col flex-1 min-h-0" : "hidden"}>
         {/* 面板内部的入口:添加文件夹(样式同对话面板的「新建对话」);一个都没有时由下面的空状态承担 */}
         {roots.length > 0 && (
-          <div className="shrink-0 py-1 border-b border-border">
-            <div
-              onClick={openAddWorkspace}
-              className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
-            >
-              <Plus size={14} className="shrink-0" />
-              <span className="text-[13.5px]">添加文件夹</span>
-            </div>
-          </div>
+          <PanelCreateAction label="添加文件夹" onClick={openAddRoot} />
         )}
 
         <RootDroppable onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
@@ -646,7 +638,7 @@ export function FilesPanel({
               description="添加常用文件夹，在这里浏览和编辑文件。"
               action="添加文件夹"
               icon={<FolderPlus size={13} />}
-              onAction={openAddWorkspace}
+              onAction={openAddRoot}
             />
           )}
 
@@ -667,16 +659,16 @@ export function FilesPanel({
 
       {/* 菜单与对话框放隐藏容器之外:面板未激活时(如命令面板发起「添加文件夹」)也可见 */}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
-        {addWorkspaceOpen && (
-          <AddWorkspaceDialog
-            value={workspacePathDraft}
-            error={workspaceError}
-            submitting={addingWorkspace}
-            picking={pickingWorkspace}
-            onChange={(value) => { setWorkspacePathDraft(value); setWorkspaceError(null); }}
-            onPick={pickWorkspace}
-            onSubmit={addWorkspace}
-            onClose={() => { if (!addingWorkspace && !pickingWorkspace) setAddWorkspaceOpen(false); }}
+        {addRootOpen && (
+          <AddRootDialog
+            value={rootPathDraft}
+            error={rootError}
+            submitting={addingRoot}
+            picking={pickingDirectory}
+            onChange={(value) => { setRootPathDraft(value); setRootError(null); }}
+            onPick={pickDirectory}
+            onSubmit={addRoot}
+            onClose={() => { if (!addingRoot && !pickingDirectory) setAddRootOpen(false); }}
           />
         )}
 
@@ -721,7 +713,7 @@ function RootDroppable({
 }
 
 /** 拖拽跟随物:不遮视野 —— 单个 = 小图标牌;多选 = 第一层数量徽标(Finder 习惯)。 */
-function DragPreview({ node, count = 1 }: { node: Node; count?: number }) {
+function DragPreview({ node, count = 1 }: { node: FileNode; count?: number }) {
   if (count > 1) {
     return (
       <div className="w-7 h-7 rounded-full bg-accent text-white text-[12px] font-semibold flex items-center justify-center shadow-lg shadow-black/20 cursor-grabbing select-none">
@@ -729,10 +721,10 @@ function DragPreview({ node, count = 1 }: { node: Node; count?: number }) {
       </div>
     );
   }
-  const Icon = iconFor(node.kind, node.title);
+  const Icon = fileIconFor(node.kind, node.title);
   return (
     <div className="w-7 h-7 rounded-md bg-surface border border-border-strong shadow-lg shadow-black/15 flex items-center justify-center cursor-grabbing select-none">
-      <Icon size={14} className={colorFor(node.kind)} />
+      <Icon size={14} className={fileColorFor(node.kind)} />
     </div>
   );
 }

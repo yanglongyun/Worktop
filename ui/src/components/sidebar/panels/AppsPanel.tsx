@@ -1,13 +1,14 @@
+import { type AppInfo, appsApi } from "../../../api/apps";
 // 应用列表:活动栏第四格。
 //
 // 它是**启动器**,不是面板 —— 组件挂进侧栏那格里,应用开在标签页。
 // 所以这里除了名字还得有「跑没跑」:应用有进程、会按需启停、会崩,
 // 状态看不见的话用户根本不知道该不该等。
 import { useCallback, useEffect, useState } from "react";
-import { api, type AppInfo } from "../../../api";
 import { ContextMenu, type MenuItem } from "../../ui";
 import { AlertTriangle, Pin, PinOff, Plus, RotateCw, Square } from "lucide-react";
 import { isPinned, togglePin } from "../../../lib/railPins";
+import { PanelCreateAction } from "./PanelCreateAction";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 
@@ -35,7 +36,7 @@ export function AppsPanel({ socket, onOpenApp, onCreate }: {
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
-  const load = useCallback(() => { void api.listApps().then(setApps).catch(() => {}); }, []);
+  const load = useCallback(() => { void appsApi.listApps().then(setApps).catch(() => {}); }, []);
   useEffect(() => { load(); }, [load]);
   // 目录变了(AI 刚写完一个)、状态变了(起来了/崩了)都要跟上
   useEffect(() => socket.on("apps_changed", load), [socket, load]);
@@ -53,9 +54,9 @@ export function AppsPanel({ socket, onOpenApp, onCreate }: {
         { label: pinned ? "从活动栏取消固定" : "固定到活动栏", icon: pinned ? <PinOff size={13} /> : <Pin size={13} />, disabled: !!app.invalid,
           onClick: () => { togglePin({ kind: "app", id: app.id, title: app.name, hasIcon: app.hasIcon }); } },
         { label: "重启", icon: <RotateCw size={13} />, disabled: !!app.invalid,
-          onClick: () => { void api.restartApp(app.id).then(load).catch(() => {}); } },
+          onClick: () => { void appsApi.restartApp(app.id).then(load).catch(() => {}); } },
         { label: "停止", icon: <Square size={13} />, disabled: !running,
-          onClick: () => { void api.stopApp(app.id).then(load).catch(() => {}); } },
+          onClick: () => { void appsApi.stopApp(app.id).then(load).catch(() => {}); } },
       ],
     });
   };
@@ -63,15 +64,7 @@ export function AppsPanel({ socket, onOpenApp, onCreate }: {
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       {onCreate && apps.length > 0 && (
-        <div className="shrink-0 py-1 border-b border-border">
-          <div
-            onClick={onCreate}
-            className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
-          >
-            <Plus size={14} className="shrink-0" />
-            <span className="text-[13.5px]">创建应用…</span>
-          </div>
-        </div>
+        <PanelCreateAction label="创建应用…" onClick={onCreate} />
       )}
       <div className="flex-1 min-h-0 overflow-y-auto">
       {apps.map((app) => (

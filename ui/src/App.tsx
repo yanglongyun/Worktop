@@ -1,12 +1,15 @@
+import { type GitRepositoryStatus } from "./api/git";
+import { type Chat, chatsApi } from "./api/chats";
+import { type FileNode, filesApi } from "./api/files";
+import { widgetsApi } from "./api/widgets";
 import { chatStartTab } from "./components/workspace/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSocket } from "./ws";
 import { tabForWcId, useBrowserHost, wcIdForTab } from "./lib/webviewHost";
-import { api, type GitRepositoryStatus, type Node } from "./api";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
-import { WorkspaceLayout, isAppTab, isSettingsTab, isNodeTab, useTabGroups, terminalTab, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
+import { WorkspaceLayout, isAppTab, isSettingsTab, isContentTab, useTabGroups, terminalTab, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { toNavigableUrl } from "./lib/search";
 import { BrowsingPrompts, DialogHost, dialog, showToast, SystemNotices, ToastHost } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, X, PanelRight } from "lucide-react";
@@ -24,7 +27,7 @@ export function App() {
   const [fileRefreshKeys, setFileRefreshKeys] = useState<Record<string, number>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedNode, setSelectedNode] = useState<(Chat | FileNode) | null>(null);
 
   const onFileSaved = (id: string) => {
     setDirtyIds((s) => { const n = new Set(s); n.delete(id); return n; });
@@ -53,19 +56,19 @@ export function App() {
   activeTabRef.current = tabGroups.activeTab;
   dirtyRef.current = dirtyIds;
   const activeNode = tabGroups.activeNode;
-  const openNode = (n: Node | null, opts: { preview?: boolean; side?: boolean; groupId?: "main" | "side" } = {}) => {
+  const openNode = (n: (Chat | FileNode) | null, opts: { preview?: boolean; side?: boolean; groupId?: "main" | "side" } = {}) => {
     setSelectedNode(n);
     tabGroups.openNode(n, opts);
   };
   const currentCreateParentId = () => {
     const node = selectedNode || activeNode;
-    if (!node) return null;
-    return node.kind === "space" ? node.id : node.parent_id;
+    if (!node || node.kind === "chat") return null;
+    return node.kind === "folder" ? node.id : node.parent_id;
   };
-  const openTerminal = (n: Node, opts: { command?: string; titlePrefix?: string } = {}) => {
+  const openTerminal = (n: FileNode, opts: { command?: string; titlePrefix?: string } = {}) => {
     setSelectedNode(n);
     const cwdHint = n.id;
-    const name = n.kind === "space" ? n.title : n.parent_id?.split("/").filter(Boolean).pop() || n.title;
+    const name = n.kind === "folder" ? n.title : n.parent_id?.split("/").filter(Boolean).pop() || n.title;
     const title = `${opts.titlePrefix || "Terminal"}: ${name}`;
     tabGroups.openTerminal(cwdHint, title, { command: opts.command });
   };
@@ -77,7 +80,7 @@ export function App() {
   const refreshGit = useCallback(() => setGitRefreshKey((n) => n + 1), []);
   const openGit = (repo: GitRepositoryStatus) => {
     if (!repo.root) return;
-    tabGroups.openGit(repo.root, repo.workspaceTitle || "Git");
+    tabGroups.openGit(repo.root, repo.fileRootTitle || "Git");
   };
 
   // 树相关 WS 事件 → 刷新树/状态点(节流,流式时 message 事件很密)
@@ -96,9 +99,9 @@ export function App() {
 
   // 对话标签页上的状态点/未读点:跟着运行事件走(对话不在文件树上)
   useEffect(() => {
-    const set = (id: string, patch: Partial<Node>) => tabGroups.updateNodeTab(String(id), patch as Node);
+    const set = (id: string, patch: Partial<Chat>) => tabGroups.updateChatTab(String(id), patch);
     // 标签页存的是 node 快照 —— 自动取名/重命名后把新标题同步过去(挂载时也对齐一次)
-    const syncTitles = () => api.listChats().then((r) => {
+    const syncTitles = () => chatsApi.listChats().then((r) => {
       for (const a of r.chats) set(a.id, { title: a.title });
     }).catch(() => {});
     syncTitles();
@@ -108,9 +111,9 @@ export function App() {
       socket.on("widget_confirm", (p: any) => {
         if (!p?.requestId || !p?.message) return;
         void dialog.confirm(String(p.message)).then((ok) =>
-          api.widgetConfirmResult(String(p.requestId), ok).catch(() => {}));
+          widgetsApi.widgetConfirmResult(String(p.requestId), ok).catch(() => {}));
       }),
-      // 应用的 /host/notify:此前后端 emit 了没人接,通知消失于无形
+      // 应用的 /apps/notify:此前后端 emit 了没人接,通知消失于无形
       // 用户按了「停止」:那张应用标签留着也是个死壳,直接关掉(闲置回收不关)
       socket.on("app_status", (p: any) => {
         if (p?.status !== "stopped" || p?.reason !== "manual") return;
@@ -128,12 +131,12 @@ export function App() {
       socket.on(EVENTS.ERROR, (p: any) => set(p.chatId, { status: "error" })),
       socket.on(EVENTS.INPUT, (p: any) => {
         const active = activeTabRef.current; // 用 ref 读:activeTab 进依赖会让本 effect 每次 setState 后重跑
-        if (active && isNodeTab(active) && active.id === p.chatId) return; // 正看着呢,不算未读
+        if (active && isContentTab(active) && active.id === p.chatId) return; // 正看着呢,不算未读
         set(p.chatId, { unread: true });
       }),
     ];
     return () => { offs.forEach((f) => f()); };
-  }, [socket, tabGroups.updateNodeTab]);
+  }, [socket, tabGroups.updateChatTab]);
 
   // 标签与 WS 联动:重命名/删除时同步标签
   useEffect(() => {
@@ -148,7 +151,7 @@ export function App() {
         let changed = false;
         const next = { ...prev };
         for (const t of allTabsRef.current) {
-          if (!isNodeTab(t)) continue;
+          if (!isContentTab(t)) continue;
           if (t.kind !== "file" || dirtyRef.current.has(t.id) || !hit(t.id)) continue;
           next[t.id] = (next[t.id] || 0) + 1;
           changed = true;
@@ -156,13 +159,13 @@ export function App() {
         return changed ? next : prev;
       });
       if (p?.item) {
-        tabGroups.updateNodeTab(p.item.id, p.item);
+        tabGroups.updateFileTab(p.item.id, p.item);
       } else if (p?.reason === "deleted" && p?.id) {
         tabGroups.removeNodeTab(p.id);
       }
     });
     return off;
-  }, [refreshGit, socket, tabGroups.removeNodeTab, tabGroups.updateNodeTab]);
+  }, [refreshGit, socket, tabGroups.removeNodeTab, tabGroups.updateFileTab]);
 
   // browser open:AI 要开一个网页标签 —— **后台打开**,在当前分组里正常开一个标签但不抢前台:
   // 用户可能正在别的对话里干活,AI 开页不该把人的焦点夺走。带 token 打开,webview 注册时兑现给 server;
@@ -259,7 +262,7 @@ export function App() {
 
   // 在当前选中工作区/文件夹里新建(命令面板用)。
   // 对话零打扰直接建(默认「未命名对话」,首条消息后系统自动取名);文件类名字走 prompt
-  const createAtCurrentTarget = async (kind: "space" | "chat" | "file") => {
+  const createAtCurrentTarget = async (kind: "folder" | "chat" | "file") => {
     try {
       const parentId = currentCreateParentId() || undefined;
       if (kind === "chat") {
@@ -267,12 +270,12 @@ export function App() {
         return;
       }
       const title = await dialog.prompt("", {
-        title: `新建${kind === "space" ? "文件夹" : "文件"}`,
-        placeholder: kind === "space" ? "文件夹名…" : "文件名…",
+        title: `新建${kind === "folder" ? "文件夹" : "文件"}`,
+        placeholder: kind === "folder" ? "文件夹名…" : "文件名…",
         confirmText: "创建",
       });
       if (!title || !title.trim()) return;
-      const r = await api.createNode({ kind, title: title.trim(), parentId });
+      const r = await filesApi.createNode({ kind, title: title.trim(), parentId });
       openNode(r.item);
       setTreeRefresh((n) => n + 1);
     } catch (e: any) {
@@ -280,10 +283,10 @@ export function App() {
     }
   };
 
-  const addWorkspace = async () => {
+  const addRoot = async () => {
     setMobileNavOpen(true);
     setDesktopNavOpen(true);
-    window.dispatchEvent(new Event("worktop:add-workspace"));
+    window.dispatchEvent(new Event("worktop:add-root"));
   };
 
   // 新标签页:+ / ⌘T 打开一个空白页;Enter 后**就地转身** —— 文字变对话
@@ -330,7 +333,7 @@ export function App() {
       if (tabId && groupId) tabGroups.closeTab(groupId, tabId);
     };
     const onLaunchOpen = (e: Event) => {
-      const { tabId, groupId, node } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; node?: Node };
+      const { tabId, groupId, node } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; node?: (Chat | FileNode) };
       if (!tabId || !groupId || !node) return;
       setSelectedNode(node);
       tabGroups.replaceTab(groupId, tabId, node);
@@ -375,9 +378,9 @@ export function App() {
       const raw = await dialog.prompt("", { title: "打开网址", placeholder: "example.com", confirmText: "打开" });
       if (raw && raw.trim()) openWebTab(/^[a-z][a-z0-9+.-]*:/i.test(raw.trim()) ? raw.trim() : `https://${raw.trim()}`);
     } },
-    { id: "new-space", label: "新建文件夹", icon: <Folder size={14} />, run: () => createAtCurrentTarget("space") },
+    { id: "new-folder", label: "新建文件夹", icon: <Folder size={14} />, run: () => createAtCurrentTarget("folder") },
     { id: "new-file", label: "新建文件", icon: <FileText size={14} />, run: () => createAtCurrentTarget("file") },
-    { id: "add-workspace", label: "添加文件夹", icon: <FolderPlus size={14} />, run: addWorkspace },
+    { id: "add-root", label: "添加文件夹", icon: <FolderPlus size={14} />, run: addRoot },
     { id: "quick-open", label: "快速打开…", hint: "⌘P", icon: <Search size={14} />, run: () => setQuickOpen(true) },
     {
       id: "move-tab-side",
@@ -407,7 +410,7 @@ export function App() {
     focusGroup: tabGroups.focusGroup,
     activate: (groupId, tabId) => {
       tabGroups.activateTab(groupId, tabId);
-      tabGroups.updateNodeTab(tabId, { unread: false } as Node); // 点开即已读
+      tabGroups.updateChatTab(tabId, { unread: false }); // 点开即已读
     },
     close: tabGroups.closeTab,
     reorder: tabGroups.reorderTabs,

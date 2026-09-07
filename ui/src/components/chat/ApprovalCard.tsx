@@ -1,3 +1,4 @@
+import { type ApprovalCard as Card, chatsApi } from "../../api/chats";
 // 提醒卡:助手自己觉得该问一句,停在这儿等你表态。
 //
 // 它长在对话流里,不做浮层 —— 调用停在哪儿,卡就出现在哪儿,你能看见上下文里助手正在干什么。
@@ -5,13 +6,12 @@
 // 它是助手的判断,不是保证:界面不许让人以为「危险操作它一定会问」。
 import { useState } from "react";
 import { AlertTriangle, Check, MessageCircleQuestion, X } from "lucide-react";
-import { permissionApi, type ApprovalCard as Card } from "../../lib/permission";
 
 export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string) => void }) {
   const [busy, setBusy] = useState(false);
   const answer = (value: "allow" | "deny") => {
     setBusy(true);
-    void permissionApi.respond(card.id, value).then(() => onDone(card.id)).catch(() => setBusy(false));
+    void chatsApi.respondApproval(card.id, value).then(() => onDone(card.id)).catch(() => setBusy(false));
   };
   return (
     <div className="w-full max-w-2xl rounded-xl border border-accent/40 bg-accent/[0.04] overflow-hidden">

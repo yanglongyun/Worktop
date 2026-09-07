@@ -1,4 +1,4 @@
-import { REPO_ROOT } from "../home.js";
+import { REPO_ROOT, productHome } from "../system/paths.js";
 // 组件注册表:组件 = 组件的家里的一个目录。契约是出厂技能 resources/skills/widget/SKILL.md。
 //
 //   <家>/widgets/<id>/
@@ -11,12 +11,11 @@ import { REPO_ROOT } from "../home.js";
 // 组件的家是产品自己的地盘(~/.worktop/widgets),不往用户的工作区里塞东西。
 import fs from "fs";
 import path from "path";
-import { productHome } from "../workspace/tree.js";
 
 const RESOURCES = process.env.WORKTOP_RESOURCES || path.join(REPO_ROOT, "resources");
 
 const WIDGET_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-const PERMISSIONS = ["sql", "fs", "ai", "net"] as const; // ui 免申请
+const PERMISSIONS = ["sql", "ai", "net"] as const; // ui 免申请
 
 type WidgetInfo = {
   id: string;
@@ -80,7 +79,7 @@ export const widgetFile = (id: string, rel: string): { buf: Buffer; ext: string 
   const base = path.resolve(widget.dir);
   const abs = path.resolve(base, rel.replace(/^\/+/, ""));
   if (abs !== base && !abs.startsWith(base + path.sep)) return null;
-  if (/(^|[/\\])data\.db(-wal|-shm)?$/.test(abs)) return null; // 数据库只经 /_wt/sql,不当静态文件发
+  if (/(^|[/\\])data\.db(-wal|-shm)?$/.test(abs)) return null; // 数据库只经 /widgets/sql,不当静态文件发
   try {
     const stat = fs.statSync(abs);
     if (!stat.isFile() || stat.size > 20 * 1024 * 1024) return null;

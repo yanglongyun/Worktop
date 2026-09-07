@@ -1,3 +1,8 @@
+import { type GitRepositoryStatus } from "../../api/git";
+import { type Chat, chatsApi } from "../../api/chats";
+import { type FileNode } from "../../api/files";
+import { widgetsApi } from "../../api/widgets";
+import { appsApi } from "../../api/apps";
 // 面板宿主:侧边栏的「壳」= 最左侧竖排活动栏 + 内容面板。
 //
 // 活动栏仿 VS Code:贯穿整个窗口高度,分两段 ——
@@ -8,7 +13,6 @@
 // 「收起侧栏」只收内容面板,活动栏常驻;点当前图标一下 = 收起(VS Code 的肌肉记忆)。
 // 组件的身体是 iframe,指向组件自己的 origin;契约是出厂技能 skills/widget。
 import { useEffect, useRef, useState } from "react";
-import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, Favicon, dialog, type MenuItem } from "../ui";
 import { isPinned, togglePin, unpin, useRailPins, type RailPin } from "../../lib/railPins";
 import { Activity, ChevronLeft, PanelLeft, Pin, PinOff, Plus, Puzzle, Settings, Trash2, X } from "lucide-react";
@@ -68,8 +72,11 @@ manifest.json:
 6. run.args 原样传给进程,不经 shell、不做变量展开 —— 要用 PORT 就在程序里读环境变量。
 
 宿主能力(要用才声明,带 Authorization: Bearer \${process.env.APP_TOKEN}):
-  POST \${process.env.HOST_URL}/host/ai/complete   { prompt, instructions? } → { text }
-  POST \${process.env.HOST_URL}/host/notify        { text, kind?: "toast"|"badge" }
+  GET  \${process.env.HOST_URL}/apps/me            → { appId, name, version, permissions }
+  POST \${process.env.HOST_URL}/apps/ai/complete   { prompt, instructions? } → { text }
+  POST \${process.env.HOST_URL}/apps/ai/agent      { prompt, title?, cwd? } → SSE 任务事件流
+  POST \${process.env.HOST_URL}/apps/notify        { text, kind?: "toast"|"badge" }
+这里的 /apps/* 是宿主提供给应用的接口;主界面的 /api/apps 是应用管理接口。
 文件、网络、进程你本来就有,不需要宿主转手。
 
 **人机协同是重点:状态只有一份真相,在你的 server 侧。**
@@ -103,7 +110,7 @@ export function PanelHost({
   onChanged,
 }: {
   selectedId: string;
-  onSelect: (n: Node | null) => void;
+  onSelect: (n: (Chat | FileNode) | null) => void;
   socket: Socket;
   onOpenUrl: (url: string, title?: string) => void;
   /** 打开一个应用(开在标签页 —— 组件挂侧栏,应用上标签)。 */
@@ -113,8 +120,8 @@ export function PanelHost({
   onToggleNav?: () => void;
   /** 直接设定内容面板开合(点当前图标收起、点别的图标展开都要一个确定态,toggle 不够)。 */
   onSetDesktopOpen?: (open: boolean) => void;
-  onOpenSide?: (n: Node) => void;
-  onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
+  onOpenSide?: (n: (Chat | FileNode)) => void;
+  onOpenTerminal?: (n: FileNode, opts?: { command?: string; titlePrefix?: string }) => void;
   onOpenGit?: (repo: GitRepositoryStatus) => void;
   refreshKey: number;
   settingsActive: boolean;
@@ -128,7 +135,7 @@ export function PanelHost({
   // ── 组件:全部来自组件的家(<家>/widgets/<id>/),目录即安装 ──
   const order = useWidgetOrder();
   const [widgets, setWidgets] = useState<WidgetDef[]>([]);
-  const reloadWidgets = () => api.listWidgets()
+  const reloadWidgets = () => widgetsApi.listWidgets()
     .then((list) => setWidgets(list as WidgetDef[]))
     .catch(() => {});
   useEffect(() => { void reloadWidgets(); }, [refreshKey]);
@@ -224,7 +231,7 @@ export function PanelHost({
   useEffect(() => {
     let gone = false;
     const load = () => {
-      void Promise.all([api.listChats().catch(() => null), api.listRuns().catch(() => null)])
+      void Promise.all([chatsApi.listChats().catch(() => null), chatsApi.listRuns().catch(() => null)])
         .then(([chats, runs]) => {
           if (gone) return;
           const running = !!(runs?.ids || []).length;
@@ -241,7 +248,7 @@ export function PanelHost({
   // 应用:有一个在跑就亮蓝点
   const [appsRunning, setAppsRunning] = useState(false);
   useEffect(() => {
-    const load = () => void api.listApps()
+    const load = () => void appsApi.listApps()
       .then((list) => setAppsRunning(list.some((a) => a.status === "ready" || a.status === "starting")))
       .catch(() => {});
     load();
@@ -259,7 +266,7 @@ export function PanelHost({
       { danger: true, confirmText: "删除" },
     );
     if (!ok) return;
-    try { await api.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
+    try { await widgetsApi.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
     void reloadWidgets();
     dropFromOrder(widget.id);
     unpin("widget", widget.id);
@@ -275,7 +282,7 @@ export function PanelHost({
     });
     if (!desc || !desc.trim()) return;
     try {
-      const r = await api.createChat({ title: "" });
+      const r = await chatsApi.createChat({ title: "" });
       onSelect(r.item);
       socket.send({ type: "send", chatId: r.item.id, prompt: buildWidgetPrompt(desc) });
       switchTab("agents");
@@ -334,7 +341,7 @@ export function PanelHost({
     });
     if (!desc || !desc.trim()) return;
     try {
-      const r = await api.createChat({ title: "" });
+      const r = await chatsApi.createChat({ title: "" });
       onSelect(r.item);
       socket.send({ type: "send", chatId: r.item.id, prompt: buildAppPrompt(desc) });
       switchTab("agents");
@@ -387,9 +394,9 @@ export function PanelHost({
   };
 
   // 移动端抽屉:选中即收(文件夹除外)
-  const handleSelect = (n: Node | null) => {
+  const handleSelect = (n: (Chat | FileNode) | null) => {
     onSelect(n);
-    if (mobileOpen && n?.kind !== "space") onCloseMobile?.();
+    if (mobileOpen && n?.kind !== "folder") onCloseMobile?.();
   };
   const handleToggleSettings = () => {
     onOpenSettings();

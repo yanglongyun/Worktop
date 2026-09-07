@@ -2,7 +2,7 @@
 // 每次调用把 summary 打到服务端控制台(问责的形式保留,但不落库);summary 必填。
 // 用用户在设置里配好的同一套模型;每组件并发限 2,可见性是第一道闸。
 import { complete } from "../ai/complete.js";
-import { getSettings } from "../settings.js";
+import { getSettings } from "../settings/store.js";
 
 const inflight = new Map<string, number>();
 const MAX_CONCURRENT = 2;

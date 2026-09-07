@@ -1,7 +1,7 @@
 const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
     .then((r) => r.json());
-const sql = (q, params = []) => post("/_wt/sql", { sql: q, params });
+const sql = (q, params = []) => post("/widgets/sql", { sql: q, params });
 const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 
 await sql("CREATE TABLE IF NOT EXISTS feeds (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, url TEXT NOT NULL UNIQUE)");
@@ -67,12 +67,12 @@ const show = (items, name) => {
     </a>`).join("");
 };
 
-// 链接开进工作台的网页标签(/_wt/open),不去系统浏览器
+// 链接开进工作台的网页标签(/widgets/open),不去系统浏览器
 list.onclick = (e) => {
   const a = e.target.closest("a.item");
   if (!a) return;
   e.preventDefault();
-  void post("/_wt/open", { url: a.getAttribute("href") });
+  void post("/widgets/open", { url: a.getAttribute("href") });
 };
 
 const load = async (force = false) => {
@@ -82,7 +82,7 @@ const load = async (force = false) => {
   if (!force && hit && Date.now() - hit.at < TTL) return show(hit.items, feed.name);
   list.innerHTML = '<div class="empty">加载中…</div>';
   try {
-    const r = await post("/_wt/http", { url: feed.url });
+    const r = await post("/widgets/http", { url: feed.url });
     if (!r.ok) throw new Error(r.error);
     const { items } = parseFeed(r.text);
     cache.set(feed.id, { at: Date.now(), items });
@@ -102,7 +102,7 @@ addform.onsubmit = async (e) => {
   if (!url) return;
   feedurl.disabled = true;
   try {
-    const r = await post("/_wt/http", { url });
+    const r = await post("/widgets/http", { url });
     if (!r.ok) throw new Error(r.error);
     const { feedTitle } = parseFeed(r.text);
     const name = feedTitle || new URL(url).hostname;

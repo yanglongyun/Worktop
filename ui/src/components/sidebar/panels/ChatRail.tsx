@@ -1,12 +1,13 @@
+import { EVENTS } from "../../../../../server/shared/events";
+import { type Chat, chatsApi } from "../../../api/chats";
 // 会话列表:对话不再长在文件树里,这里是它们的家。
 // 置顶 / 最近两组;行上呼吸点 = 正在运行,绿点 = 未读;悬停 ⋯ 出操作。
 import { useCallback, useEffect, useState } from "react";
-import type { Node } from "../../../api";
-import { api } from "../../../api";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
 import { MoreVertical, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { relativeTime, toggleChatRowField, useChatRowFields, type ChatRowFields } from "../../../lib/chatRows";
 import { PanelEmptyState } from "./PanelEmptyState";
+import { PanelCreateAction } from "./PanelCreateAction";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 
@@ -17,11 +18,11 @@ export function ChatRail({
   socket,
 }: {
   selectedId: string;
-  onSelect: (n: Node) => void;
+  onSelect: (n: Chat) => void;
   refreshKey: number;
   socket: Socket;
 }) {
-  const [agents, setAgents] = useState<Node[]>([]);
+  const [agents, setAgents] = useState<Chat[]>([]);
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -38,19 +39,19 @@ export function ChatRail({
   }));
 
   const load = useCallback(async () => {
-    const result = await api.listChats().catch(() => null);
+    const result = await chatsApi.listChats().catch(() => null);
     if (result) setAgents(result.chats);
   }, []);
   useEffect(() => { load(); }, [load, refreshKey]);
 
   // 呼吸点:事件即亮即灭,10 秒轮询兜底对账
   useEffect(() => {
-    const sync = () => api.listRuns().then((r) => setRunning(new Set(r.ids || []))).catch(() => {});
+    const sync = () => chatsApi.listRuns().then((r) => setRunning(new Set(r.ids || []))).catch(() => {});
     sync();
     const timer = setInterval(sync, 10_000);
     const offs = [
-      socket.on("conversation.start", (p: any) => setRunning((s) => new Set(s).add(String(p.chatId)))),
-      ...["conversation.done", "conversation.aborted", "conversation.error"].map((t) =>
+      socket.on(EVENTS.START, (p: any) => setRunning((s) => new Set(s).add(String(p.chatId)))),
+      ...[EVENTS.DONE, EVENTS.ABORTED, EVENTS.ERROR].map((t) =>
         socket.on(t, (p: any) => setRunning((s) => { const n = new Set(s); n.delete(String(p.chatId)); return n; })),
       ),
     ];
@@ -67,11 +68,11 @@ export function ChatRail({
     const title = renameDraft.trim();
     setRenamingId(null);
     if (!id || !title) return;
-    await api.updateChat(id, { title });
+    await chatsApi.updateChat(id, { title });
     load();
   };
 
-  const onContext = (e: React.MouseEvent, agent: Node) => {
+  const onContext = (e: React.MouseEvent, agent: Chat) => {
     e.preventDefault();
     e.stopPropagation();
     setMenu({
@@ -79,20 +80,20 @@ export function ChatRail({
       items: [
         { label: agent.pinned ? "取消置顶" : "置顶",
           icon: agent.pinned ? <PinOff size={13} /> : <Pin size={13} className="text-accent" />,
-          onClick: async () => { await api.updateChat(agent.id, { pinned: !agent.pinned }); load(); } },
+          onClick: async () => { await chatsApi.updateChat(agent.id, { pinned: !agent.pinned }); load(); } },
         { label: "重命名", icon: <Pencil size={13} />, onClick: () => { setRenamingId(agent.id); setRenameDraft(agent.title); } },
         "divider",
         { label: "删除", icon: <Trash2 size={13} />, danger: true,
           onClick: async () => {
             if (!(await dialog.confirm(`删除对话「${agent.title}」?\n全部消息记录会一并删除。`, { danger: true, confirmText: "删除" }))) return;
-            await api.deleteChat(agent.id);
+            await chatsApi.deleteChat(agent.id);
             load();
           } },
       ],
     });
   };
 
-  const row = (agent: Node) => {
+  const row = (agent: Chat) => {
     const isSelected = selectedId === agent.id;
     const live = running.has(agent.id);
     const isRenaming = renamingId === agent.id;
@@ -160,15 +161,7 @@ export function ChatRail({
     <div className="flex-1 min-h-0 flex flex-col">
       {/* 顶部置顶功能区:与网站面板的工具行同一口径 —— 一条分割线把它和列表分开 */}
       {agents.length > 0 && (
-        <div className="shrink-0 py-1 border-b border-border">
-          <div
-            onClick={() => void createNow()}
-            className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
-          >
-            <Plus size={14} className="shrink-0" />
-            <span className="text-[13.5px]">新建对话</span>
-          </div>
-        </div>
+        <PanelCreateAction label="新建对话" onClick={() => void createNow()} />
       )}
       <div className="flex-1 min-h-0 overflow-y-auto">
       {pinned.length > 0 && (<>

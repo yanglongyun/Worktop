@@ -33,7 +33,7 @@ export const api = {
         title: `分支 ${index + 1}（生成中）`, artifactType: 'html',
       })) }),
     }),
-  // 把「递交给 agent」这一跳交给自己的服务端:服务端拼指令、调宿主 /host/ai/agent、静默消费 SSE。
+  // 生成请求交给应用服务端，由服务端调用宿主 /apps/ai/complete 并保存产物。
   // 没配置 HOST_URL/APP_TOKEN(独立运行)时,服务端返回 501,下面两个方法照常把它当错误抛出。
   generate: (projectId: string, prompt: string, count: number, nodeIds: string[]) =>
     req<{ accepted: true; nodeIds: string[] }>(`/api/projects/${projectId}/generate`, {

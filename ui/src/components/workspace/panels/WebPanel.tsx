@@ -1,10 +1,10 @@
+import { type HistoryEntry, browserApi } from "../../../api/browser";
 // 网页标签:Electron 壳里是真 <webview>(真会话、真登录态);
 // 纯浏览器里没有这个标签,给一块诚实的兜底(日常站点普遍禁 iframe,不装能行)。
 // 面板由 WorkspaceGroup 常驻挂载、CSS 控显隐 —— 卸载 = 断网重载,登录态全丢。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download as DownloadIcon, ExternalLink, Globe, History, KeyRound, MoreHorizontal, RotateCw, Star, Trash2, X } from "lucide-react";
 import type { WorkspaceGroupId, WebTab } from "../types";
-import { api, type HistoryEntry } from "../../../api";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 import { displayUrl, hostKey, normalizeUrl } from "../../../lib/urls";
 import { toNavigableUrl } from "../../../lib/search";
@@ -107,7 +107,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
     // 记一笔浏览记录。挂在 did-navigate 上不挂 in-page:页内锚点跳转不是「去过的地方」。
     // 标题这时可能还没到,history 那边会在下一次访问时补上。
     const onVisit = (e: any) => {
-      if (e?.url) void api.noteVisit({ url: e.url, title: (view as any).getTitle?.() || "" });
+      if (e?.url) void browserApi.noteVisit({ url: e.url, title: (view as any).getTitle?.() || "" });
     };
     const onStart = () => setLoading(true);
     const onStop = () => setLoading(false);
@@ -154,7 +154,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
   useEffect(() => {
     const key = hostKey(tab.url);
     const sync = () => {
-      void api.listSites()
+      void browserApi.listBookmarks()
         .then((sites) => setStarred(!!key && sites.some((site) => hostKey(site.url) === key)))
         .catch(() => {});
     };
@@ -176,7 +176,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
     if (!historyOpen) return;
     let gone = false;
     const timer = setTimeout(() => {
-      void api.listHistory(historyQuery).then((rows) => { if (!gone) setHistoryRows(rows); }).catch(() => {});
+      void browserApi.listHistory(historyQuery).then((rows) => { if (!gone) setHistoryRows(rows); }).catch(() => {});
     }, historyQuery ? 180 : 0); // 输入时防抖,首次打开立刻查
     return () => { gone = true; clearTimeout(timer); };
   }, [historyOpen, historyQuery]);
@@ -232,7 +232,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
   // 收藏进「网站」面板。服务端按站点键去重,所以重复点不会插重复行;
   // 已收藏时星标点亮 —— 否则点下去毫无反馈,用户不知道成没成。
   const addToSites = () => {
-    void api.createSite({ url: tab.url, title: tab.title }).then(() => setStarred(true)).catch(() => {});
+    void browserApi.createBookmark({ url: tab.url, title: tab.title }).then(() => setStarred(true)).catch(() => {});
   };
 
   if (!IN_ELECTRON) {
@@ -316,7 +316,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
                   {historyRows.length > 0 && (
                     <button
                       className="shrink-0 text-[11.5px] text-text-faint hover:text-danger transition-colors"
-                      onClick={() => { void api.forgetHistory({ all: true }).then(() => setHistoryRows([])); }}
+                      onClick={() => { void browserApi.forgetHistory({ all: true }).then(() => setHistoryRows([])); }}
                     >
                       清空
                     </button>
@@ -336,7 +336,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
                         title="从记录中删除"
                         className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint opacity-0 group-hover:opacity-100 hover:text-danger transition-all"
                         onClick={() => {
-                          void api.forgetHistory({ url: row.url })
+                          void browserApi.forgetHistory({ url: row.url })
                             .then(() => setHistoryRows((rows) => rows.filter((r) => r.url !== row.url)));
                         }}
                       >

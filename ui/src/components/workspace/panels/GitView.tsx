@@ -1,7 +1,7 @@
+import { type GitBranches, type GitCommitFile, type GitCommitInfo, type GitFileStatus, type GitRepositoryStatus, gitApi } from "../../../api/git";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Check, ChevronRight, Copy, GitBranch, GitCommitHorizontal, GitCompare, GitPullRequest, History, Minus, Plus, RefreshCw, RotateCcw, UploadCloud } from "lucide-react";
-import { api, type GitBranches, type GitCommitFile, type GitCommitInfo, type GitFileStatus, type GitRepositoryStatus } from "../../../api";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
 
 const statusText: Record<GitFileStatus["status"], string> = {
@@ -51,7 +51,7 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
     }
     setHistoryByRoot((prev) => ({ ...prev, [root]: null }));
     try {
-      const { commits } = await api.gitLog(root);
+      const { commits } = await gitApi.gitLog(root);
       setHistoryByRoot((prev) => ({ ...prev, [root]: commits }));
     } catch (e: any) {
       setError(e?.message || "读取历史失败");
@@ -64,7 +64,7 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
     setOpenCommit(hash);
     if (!commitFiles[hash]) {
       try {
-        const { files } = await api.gitShow(root, hash);
+        const { files } = await gitApi.gitShow(root, hash);
         setCommitFiles((prev) => ({ ...prev, [hash]: files }));
       } catch (e: any) {
         setError(e?.message || "读取提交失败");
@@ -77,10 +77,10 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
     setError(null);
     try {
       if (repoPath) {
-        const result = await api.gitRepository(repoPath);
+        const result = await gitApi.gitRepository(repoPath);
         setRepositories(result.repository ? [result.repository] : []);
       } else {
-        const result = await api.gitStatus();
+        const result = await gitApi.gitStatus();
         setRepositories(result.repositories || []);
       }
     } catch (e: any) {
@@ -94,7 +94,7 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
   useEffect(() => { load(); }, [repoPath, refreshKey]);
 
   const updateRepo = (repo: GitRepositoryStatus) => {
-    setRepositories((current) => current.map((item) => item.root === repo.root || item.workspaceId === repo.workspaceId ? repo : item));
+    setRepositories((current) => current.map((item) => item.root === repo.root || item.fileRootId === repo.fileRootId ? repo : item));
     onChanged?.();
   };
 
@@ -117,7 +117,7 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
     setBusy(`branches:${root}`);
     setError(null);
     try {
-      const result = await api.gitBranches(root);
+      const result = await gitApi.gitBranches(root);
       setBranchByRoot((current) => ({ ...current, [root]: result }));
     } catch (e: any) {
       setError(e.message || "读取分支失败");
@@ -161,15 +161,15 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
         )}
         {repos.map((repo) => (
           <RepositoryBlock
-            key={`${repo.workspaceId}:${repo.root}`}
+            key={`${repo.fileRootId}:${repo.root}`}
             repo={repo}
             busy={busy}
             singleRepo={singleRepo}
-            expanded={singleRepo || !collapsedByRoot[repo.root || repo.workspaceId]}
+            expanded={singleRepo || !collapsedByRoot[repo.root || repo.fileRootId]}
             commitMessage={messageByRoot[repo.root || ""] || ""}
             branches={repo.root ? branchByRoot[repo.root] : undefined}
             onToggleExpanded={() => {
-              const key = repo.root || repo.workspaceId;
+              const key = repo.root || repo.fileRootId;
               setCollapsedByRoot((current) => ({ ...current, [key]: !current[key] }));
             }}
             onMessageChange={(message) => setMessageByRoot((current) => ({ ...current, [repo.root || ""]: message }))}
@@ -239,7 +239,7 @@ function RepositoryBlock({
 
   const doDiscard = async (file: GitFileStatus) => {
     if (!(await dialog.confirm(`丢弃「${file.path}」的更改?\n这个操作不可撤销。`, { danger: true, confirmText: "丢弃" }))) return;
-    onRun(`discard:${file.path}`, () => api.gitDiscard({ root, path: file.path }));
+    onRun(`discard:${file.path}`, () => gitApi.gitDiscard({ root, path: file.path }));
   };
   const toggleGroup = (id: string) =>
     setCollapsedGroups((current) => ({ ...current, [id]: !current[id] }));
@@ -262,10 +262,10 @@ function RepositoryBlock({
       "divider",
     ];
     if (file.staged) {
-      items.push({ label: "取消暂存", icon: <Minus size={13} />, onClick: () => onRun(`unstage:${file.path}`, () => api.gitUnstage({ root, path: file.path })) });
+      items.push({ label: "取消暂存", icon: <Minus size={13} />, onClick: () => onRun(`unstage:${file.path}`, () => gitApi.gitUnstage({ root, path: file.path })) });
     }
     if ((file.unstaged || file.status === "untracked") && file.status !== "conflict") {
-      items.push({ label: "暂存更改", icon: <Plus size={13} />, onClick: () => onRun(`stage:${file.path}`, () => api.gitStage({ root, path: file.path })) });
+      items.push({ label: "暂存更改", icon: <Plus size={13} />, onClick: () => onRun(`stage:${file.path}`, () => gitApi.gitStage({ root, path: file.path })) });
     }
     items.push(
       { label: "复制路径", icon: <Copy size={13} />, onClick: () => copyPath(file) },
@@ -292,7 +292,7 @@ function RepositoryBlock({
               ].join(" ")}
             />
             <GitBranch size={13} className="text-accent shrink-0" />
-            <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-text">{repo.workspaceTitle}</span>
+            <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-text">{repo.fileRootTitle}</span>
             <span className="text-[11px] text-text-faint tabular-nums">{repo.files.length}</span>
           </div>
           <div className="mt-1 flex items-center gap-1.5 text-[11px] text-text-faint min-w-0">
@@ -338,7 +338,7 @@ function RepositoryBlock({
             {branches.branches.map((branch) => (
               <button
                 key={branch}
-                onClick={() => onRun(`checkout:${branch}`, () => api.gitCheckout({ root, branch }))}
+                onClick={() => onRun(`checkout:${branch}`, () => gitApi.gitCheckout({ root, branch }))}
                 disabled={disabled || branch === branches.current}
                 className="w-full flex items-center gap-1.5 px-2 py-1 text-left text-[12px] hover:bg-bg-hover disabled:opacity-50"
               >
@@ -367,7 +367,7 @@ function RepositoryBlock({
               </span>
               <button
                 onClick={() => onRun("commit", async () => {
-                  const result = await api.gitCommit({ root, message: commitMessage });
+                  const result = await gitApi.gitCommit({ root, message: commitMessage });
                   onMessageChange("");
                   return result;
                 })}
@@ -380,9 +380,9 @@ function RepositoryBlock({
           </div>
 
           <div className={singleRepo ? "pb-3 flex items-center gap-1.5" : "px-2 pb-2 grid grid-cols-3 gap-1"}>
-            <GitAction label="Fetch" icon={<RefreshCw size={12} />} disabled={disabled} onClick={() => onRun("fetch", () => api.gitRemote({ root, action: "fetch" }))} />
-            <GitAction label="Pull" icon={<GitPullRequest size={12} />} disabled={disabled} onClick={() => onRun("pull", () => api.gitRemote({ root, action: "pull" }))} />
-            <GitAction label="Push" icon={<UploadCloud size={12} />} disabled={disabled} onClick={() => onRun("push", () => api.gitRemote({ root, action: "push" }))} />
+            <GitAction label="Fetch" icon={<RefreshCw size={12} />} disabled={disabled} onClick={() => onRun("fetch", () => gitApi.gitRemote({ root, action: "fetch" }))} />
+            <GitAction label="Pull" icon={<GitPullRequest size={12} />} disabled={disabled} onClick={() => onRun("pull", () => gitApi.gitRemote({ root, action: "pull" }))} />
+            <GitAction label="Push" icon={<UploadCloud size={12} />} disabled={disabled} onClick={() => onRun("push", () => gitApi.gitRemote({ root, action: "push" }))} />
           </div>
 
           <ChangeGroup
@@ -406,11 +406,11 @@ function RepositoryBlock({
             disabled={disabled}
             onToggle={() => toggleGroup("staged")}
             onOpenDiff={onOpenDiff}
-            onAction={(file) => onRun(`unstage:${file.path}`, () => api.gitUnstage({ root, path: file.path }))}
+            onAction={(file) => onRun(`unstage:${file.path}`, () => gitApi.gitUnstage({ root, path: file.path }))}
             actionIcon={<Minus size={12} />}
             actionTitle="取消暂存"
             onContextMenu={openFileMenu}
-            groupAction={staged.length ? { title: "全部取消暂存", onClick: () => onRun("unstage-all", () => api.gitUnstage({ root, all: true })) } : undefined}
+            groupAction={staged.length ? { title: "全部取消暂存", onClick: () => onRun("unstage-all", () => gitApi.gitUnstage({ root, all: true })) } : undefined}
           />
           <ChangeGroup
             title="更改"
@@ -421,12 +421,12 @@ function RepositoryBlock({
             disabled={disabled}
             onToggle={() => toggleGroup("changes")}
             onOpenDiff={onOpenDiff}
-            onAction={(file) => onRun(`stage:${file.path}`, () => api.gitStage({ root, path: file.path }))}
+            onAction={(file) => onRun(`stage:${file.path}`, () => gitApi.gitStage({ root, path: file.path }))}
             actionIcon={<Plus size={12} />}
             actionTitle="暂存"
             onDiscard={doDiscard}
             onContextMenu={openFileMenu}
-            groupAction={unstaged.length ? { title: "全部暂存", onClick: () => onRun("stage-all", () => api.gitStage({ root, all: true })) } : undefined}
+            groupAction={unstaged.length ? { title: "全部暂存", onClick: () => onRun("stage-all", () => gitApi.gitStage({ root, all: true })) } : undefined}
           />
           {repo.files.length === 0 && (
             <div className="px-3 py-2 text-[12px] text-text-faint">没有未提交的更改</div>

@@ -1,10 +1,10 @@
+import { widgetsApi } from "../../api/widgets";
 // 组件的身体:一个 iframe,指向组件**自己的 origin**(http://127.0.0.1:<组件端口>/)。
 //
 // 不用 sandbox 的不透明源:每个组件一个端口 = 一个真 origin,localStorage / cookie
 // 天然互不可见,隔离由 origin 本身提供。
 // 断网由服务端下发的 CSP(connect-src 'self')管,不靠 sandbox。
 import { useEffect, useState } from "react";
-import { api } from "../../api";
 import type { WidgetDef } from "../sidebar/registry";
 
 export function WidgetFrame({ widget }: { widget: WidgetDef }) {
@@ -14,7 +14,7 @@ export function WidgetFrame({ widget }: { widget: WidgetDef }) {
   useEffect(() => {
     let cancelled = false;
     setSrc(null); setError(null);
-    api.widgetUrl(widget.id)
+    widgetsApi.widgetUrl(widget.id)
       .then((url) => { if (!cancelled) setSrc(url); })
       .catch((e: any) => { if (!cancelled) setError(String(e?.message || e)); });
     return () => { cancelled = true; };

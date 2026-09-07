@@ -1,4 +1,4 @@
-import { REPO_ROOT } from "../home.js";
+import { REPO_ROOT, productHome } from "../system/paths.js";
 // 应用注册表:app = 应用的家里的一个目录(契约见仓库根 APP.md)。
 //
 //   <家>/apps/<id>/
@@ -16,7 +16,6 @@ import { REPO_ROOT } from "../home.js";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, watch } from "node:fs";
 import path from "node:path";
 import { emit } from "../bus.js";
-import { productHome } from "../workspace/tree.js";
 
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const DEFAULT_HEALTH = "/health";

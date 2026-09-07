@@ -7,7 +7,7 @@
 //   1. 它只能**增加**摩擦,不能减少。没有任何路径能让助手靠调用它来跳过规则 ——
 //      它走的是同一条问询通道,加在规则之外,不替换规则。
 //   2. 它是助手的判断,**不是保证**。界面不许让人以为「危险操作它一定会问」。
-import { requestConfirm } from "../../chat/approvals.js";
+import { requestConfirm } from "../../chats/approvals.js";
 
 export const confirmDef = {
   type: "function",

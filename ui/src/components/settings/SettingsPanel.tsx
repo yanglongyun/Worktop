@@ -1,12 +1,12 @@
+import { type PromptDefaults, type Settings, settingsApi } from "../../api/settings";
+import { type SkillInfo } from "../../api/skills";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { api, type Settings, type SkillInfo } from "../../api";
 import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
 import { SEARCH_ENGINES, getSearchEngine, setSearchEngine, type SearchEngineId } from "../../lib/search";
 import { chromeImportAvailable } from "../../lib/chromeImport";
-import { Bot, Check, ChevronRight, ExternalLink, Globe, Info, Loader2, Settings2, Sparkles, SlidersHorizontal } from "lucide-react";
+import { Bot, Check, ExternalLink, Globe, Info, Loader2, Settings2, Sparkles, SlidersHorizontal } from "lucide-react";
 import { ChromeImportDialog } from "../ui";
 import { ModelConnectionFields, settingsInputClass as inputClass } from "./ModelConnectionFields";
-
 import { SkillsSettings } from "./SkillsSettings";
 
 const emptySettings: Settings = {
@@ -31,6 +31,7 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
   const [category, setCategory] = useState<Category>("model");
   const [form, setForm] = useState<Settings>(emptySettings);
   const [baseline, setBaseline] = useState<Settings>(emptySettings);
+  const [promptDefaults, setPromptDefaults] = useState<PromptDefaults>({ system: "", compactPrompt: "" });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -43,10 +44,10 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
   useEffect(() => {
     let active = true;
     setLoadError("");
-    void api.getSettings().then(({ settings }) => {
+    void settingsApi.getSettings().then(({ settings, promptDefaults }) => {
       if (!active) return;
       const current = { ...emptySettings, ...settings };
-      setForm(current); setBaseline(current); setLoaded(true);
+      setForm(current); setBaseline(current); setPromptDefaults(promptDefaults); setLoaded(true);
     }).catch((e) => { if (active) setLoadError(e instanceof Error ? e.message : "无法读取设置"); });
     return () => { active = false; };
   }, [loadAttempt]);
@@ -61,7 +62,7 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
     saving.current.add(group);
     setStates((current) => ({ ...current, [group]: { busy: true } }));
     try {
-      const { settings } = await api.saveSettings(patch);
+      const { settings } = await settingsApi.saveSettings(patch);
       // 只同步本次保存的字段,其他分类尚未保存的草稿保持不变。
       const saved = Object.fromEntries(Object.keys(patch).map((key) => [key, settings[key as keyof Settings]]));
       setForm((current) => ({ ...current, ...saved }));
@@ -111,8 +112,8 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
               </Section>
               <Section title="助手指令" description="作为默认系统提示词，设定助手的语气、偏好与工作方式。">
                 <form onSubmit={(e) => { e.preventDefault(); void save("system", { system: form.system }); }}>
-                  <textarea aria-label="助手指令" name="system" className={`${inputClass} min-h-32 resize-y leading-relaxed`} rows={5}
-                    value={form.system} disabled={states.system?.busy} onChange={(e) => edit("system", e.target.value, "system")} />
+                  <PromptEditor label="助手指令" name="system" value={form.system} defaultValue={promptDefaults.system}
+                    disabled={states.system?.busy} onChange={(value) => edit("system", value, "system")} />
                   <SaveFooter dirty={dirty(["system"])} state={states.system} />
                 </form>
               </Section>
@@ -149,11 +150,12 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
                     <Field label="工具结果上限" description="单次工具结果保留的最多字符数。默认 30000，可设置为 1000–50000。">
                       <input name="toolResultMaxChars" className={inputClass} type="number" min={1000} max={50000} step={1} required value={form.toolResultMaxChars} onChange={(e) => edit("toolResultMaxChars", e.target.value, "advanced")} />
                     </Field>
-                    <details className="group border-t border-border pt-4">
-                      <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] font-medium text-text [&::-webkit-details-marker]:hidden"><ChevronRight size={14} className="transition-transform group-open:rotate-90" />自定义压缩提示词</summary>
-                      <p className="mb-3 mt-2 text-[12px] leading-relaxed text-text-faint">控制历史对话如何被总结，留空使用默认提示词。</p>
-                      <textarea aria-label="压缩提示词" name="compactPrompt" className={`${inputClass} min-h-32 resize-y leading-relaxed`} rows={5} value={form.compactPrompt} onChange={(e) => edit("compactPrompt", e.target.value, "advanced")} />
-                    </details>
+                    <div className="border-t border-border pt-4">
+                      <h3 className="text-[13px] font-medium text-text">压缩提示词</h3>
+                      <p className="mb-3 mt-2 text-[12px] leading-relaxed text-text-faint">控制历史对话如何被总结。</p>
+                      <PromptEditor label="压缩提示词" name="compactPrompt" value={form.compactPrompt ?? ""} defaultValue={promptDefaults.compactPrompt}
+                        disabled={states.advanced?.busy} onChange={(value) => edit("compactPrompt", value, "advanced")} />
+                    </div>
                   </fieldset>
                   <SaveFooter dirty={advancedDirty} state={states.advanced} />
                 </form>
@@ -168,6 +170,19 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
       </main>
     </div>
   </div>;
+}
+
+function PromptEditor({ label, name, value, defaultValue, disabled, onChange }: {
+  label: string; name: string; value: string; defaultValue: string; disabled?: boolean; onChange: (value: string) => void;
+}) {
+  return <>
+    <textarea aria-label={label} name={name} className={`${inputClass} min-h-32 resize-y leading-relaxed`} rows={5}
+      value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+    <div className="mt-2 flex items-center justify-between gap-3">
+      <span className="text-[12px] text-text-faint">保存后生效，留空保存将恢复默认。</span>
+      <button type="button" className={secondaryButton} disabled={disabled || value === defaultValue} onClick={() => onChange(defaultValue)}>恢复默认</button>
+    </div>
+  </>;
 }
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {

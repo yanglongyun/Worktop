@@ -1,5 +1,5 @@
 import { executionDirectory } from "../agent/paths.js";
-import { DATA_HOME } from "../home.js";
+import { DATA_HOME } from "../system/paths.js";
 // 后台任务注册表:`bash` 工具 background:true 时,进程交给这里托管 ——
 // 立即返回 id/pid/日志路径,之后可查状态、读日志、停止。
 //

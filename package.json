@@ -19,7 +19,8 @@
     "prepare:node": "node scripts/prepare-node.mjs",
     "dist:mac": "npm run build && npm run build:server && npm run build:updater && npm run icon && npm run prepare:node && electron-builder --mac",
     "app:mac": "rm -rf release/mac-arm64 && npm run build && npm run build:server && npm run build:updater && npm run icon && npm run prepare:node && electron-builder --mac --dir",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:routes": "tsx --test tests/host-routes.test.ts"
   },
   "build": {
     "appId": "ai.iimos.worktop",

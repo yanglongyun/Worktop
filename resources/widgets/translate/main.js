@@ -38,7 +38,7 @@ const run = async () => {
   outcard.hidden = false;
   out.className = "waiting"; out.textContent = "翻译中…";
   const fromNote = srcLang.value === AUTO ? "" : `原文是${srcLang.value}。`;
-  const r = await post("/_wt/ai", {
+  const r = await post("/widgets/ai", {
     summary: `翻译成${dstLang.value}`,
     system: `你是专业译者。${fromNote}把用户给的文字翻译成${dstLang.value},只输出译文,不解释、不加引号。语气与原文一致,术语按行业惯例。`,
     prompt: value,

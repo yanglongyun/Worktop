@@ -1,4 +1,4 @@
-import { REPO_ROOT } from "../home.js";
+import { REPO_ROOT } from "../system/paths.js";
 import fs from "fs";
 import path from "path";
 

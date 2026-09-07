@@ -1,3 +1,4 @@
+import { type HistoryEntry, type PasswordEntry, type Bookmark, browserApi } from "../../../api/browser";
 // 「网站」段:收藏 / 历史 / 密码 三个子视图。点开即在网页标签里打开(Electron 壳的 <webview>,真登录态)。
 // 收藏(server/sites):一棵树,文件夹可以无限嵌套,同级可拖动排序。
 // 历史:一个 url 一行,重复访问只抬时间与次数。
@@ -11,7 +12,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Pin, PinOff, Trash2, Upload, User, X } from "lucide-react";
 import { isPinned, togglePin } from "../../../lib/railPins";
-import { api, type HistoryEntry, type PasswordEntry, type Site } from "../../../api";
 import { beginGlobalDrag, endGlobalDrag } from "../../../lib/drag";
 import { ChromeImportDialog, ContextMenu, dialog, showToast, type MenuItem } from "../../ui";
 import { Toolbar } from "../Toolbar";
@@ -50,7 +50,7 @@ type Drop = { overId: string; where: "before" | "after" | "inside" } | null;
 
 const Favicon = ({ url }: { url: string }) => (
   <img
-    src={`/api/favicon?url=${encodeURIComponent(url)}`}
+    src={`/api/browser/favicon?url=${encodeURIComponent(url)}`}
     alt=""
     className="shrink-0 w-4 h-4 rounded-[3px] object-contain"
     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
@@ -63,7 +63,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
   onOpenUrl: (url: string, title?: string) => void;
   socket: { on: (event: string, fn: (payload: unknown) => void) => () => void };
 }) {
-  const [sites, setSites] = useState<Site[]>([]);
+  const [sites, setSites] = useState<Bookmark[]>([]);
   const [sitesLoaded, setSitesLoaded] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [hits, setHits] = useState<HistoryEntry[]>([]);
@@ -78,9 +78,9 @@ export function SitesPanel({ onOpenUrl, socket }: {
   const dragRef = useRef<{ id: string; startY: number; dragging: boolean; drop: Drop } | null>(null);
   const suppressClick = useRef(false);
 
-  const load = useCallback(() => { void api.listSites().then((rows) => { setSites(rows); setSitesLoaded(true); }).catch(() => {}); }, []);
-  const loadHistory = useCallback(() => { void api.listHistory().then(setHistory).catch(() => {}); }, []);
-  const loadPasswords = useCallback(() => { void api.listPasswords().then(setPasswords).catch(() => {}); }, []);
+  const load = useCallback(() => { void browserApi.listBookmarks().then((rows) => { setSites(rows); setSitesLoaded(true); }).catch(() => {}); }, []);
+  const loadHistory = useCallback(() => { void browserApi.listHistory().then(setHistory).catch(() => {}); }, []);
+  const loadPasswords = useCallback(() => { void browserApi.listPasswords().then(setPasswords).catch(() => {}); }, []);
   useEffect(() => { load(); loadHistory(); loadPasswords(); }, [load, loadHistory, loadPasswords]);
   useEffect(() => socket.on("sites_changed", () => load()), [socket, load]);
   useEffect(() => socket.on("history_changed", () => loadHistory()), [socket, loadHistory]);
@@ -96,7 +96,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
   useEffect(() => {
     if (!needle || view !== "history") { setHits([]); return; }
     let gone = false;
-    const timer = setTimeout(() => { void api.listHistory(q.trim()).then((rows) => { if (!gone) setHits(rows); }).catch(() => {}); }, 180);
+    const timer = setTimeout(() => { void browserApi.listHistory(q.trim()).then((rows) => { if (!gone) setHits(rows); }).catch(() => {}); }, 180);
     return () => { gone = true; clearTimeout(timer); };
   }, [needle, q, view]);
 
@@ -107,7 +107,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
     for (let i = 0; cur && i < 64; i++) { if (cur === folderId) return true; cur = byId.get(cur)?.parent_id || null; }
     return false;
   };
-  const pathOf = (site: Site) => {
+  const pathOf = (site: Bookmark) => {
     const names: string[] = [];
     let cur = site.parent_id;
     for (let i = 0; cur && i < 64; i++) { const p = byId.get(cur); if (!p) break; names.unshift(p.title); cur = p.parent_id; }
@@ -139,10 +139,10 @@ export function SitesPanel({ onOpenUrl, socket }: {
   const addFolder = async (parentId: string | null = null) => {
     const title = await dialog.prompt("", { title: "新建文件夹", placeholder: "文件夹名…", confirmText: "创建" });
     if (!title || !title.trim()) return;
-    try { await api.createSiteFolder({ title: title.trim(), parentId }); if (parentId) setOpen((p) => writeOpen(new Set(p).add(parentId))); load(); }
+    try { await browserApi.createBookmarkFolder({ title: title.trim(), parentId }); if (parentId) setOpen((p) => writeOpen(new Set(p).add(parentId))); load(); }
     catch (e: any) { void dialog.alert(e?.message || "创建失败"); }
   };
-  const remove = async (site: Site) => {
+  const remove = async (site: Bookmark) => {
     const isFolder = site.kind === "folder";
     // 整棵子树里有多少条收藏(不算文件夹本身)
     let count = 0;
@@ -153,26 +153,26 @@ export function SitesPanel({ onOpenUrl, socket }: {
     const hint = isFolder ? (count ? `\n里面的 ${count} 条收藏会一起删除,不可恢复。` : "\n它是空的。") : "";
     if (!(await dialog.confirm(`${isFolder ? "删除文件夹" : "从收藏里移除"}「${site.title}」?${hint}`,
       { danger: true, confirmText: isFolder ? "删除" : "移除" }))) return;
-    try { await api.removeSite(site.id); load(); } catch { /* 列表会自己对齐 */ }
+    try { await browserApi.removeBookmark(site.id); load(); } catch { /* 列表会自己对齐 */ }
   };
   const siteInputClass = "w-full h-7 px-2 border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
   // 编辑在行下就地展开:网站改名字 + 网址,文件夹只改名字
   // id 为 null = 新建(parentId 说明放哪);否则是编辑已有的一条
-  const [siteEditing, setSiteEditing] = useState<{ id: string | null; kind: Site["kind"]; title: string; url: string; parentId?: string | null } | null>(null);
-  const editSite = (site: Site) => setSiteEditing({ id: site.id, kind: site.kind, title: site.title, url: site.url });
+  const [siteEditing, setSiteEditing] = useState<{ id: string | null; kind: Bookmark["kind"]; title: string; url: string; parentId?: string | null } | null>(null);
+  const editSite = (site: Bookmark) => setSiteEditing({ id: site.id, kind: site.kind, title: site.title, url: site.url });
   const saveSite = async () => {
     if (!siteEditing) return;
     const title = siteEditing.title.trim();
     const url = siteEditing.url.trim();
     if (siteEditing.kind === "site" && !url) { void dialog.alert("网址不能为空"); return; }
     try {
-      if (siteEditing.id === null) await api.createSite({ url, title: title || undefined, parentId: siteEditing.parentId ?? null });
-      else await api.updateSite(siteEditing.id, siteEditing.kind === "site" ? { title, url } : { title });
+      if (siteEditing.id === null) await browserApi.createBookmark({ url, title: title || undefined, parentId: siteEditing.parentId ?? null });
+      else await browserApi.updateBookmark(siteEditing.id, siteEditing.kind === "site" ? { title, url } : { title });
       setSiteEditing(null);
       load();
     } catch (e: any) { void dialog.alert(e?.message || (siteEditing.id === null ? "添加失败" : "保存失败")); }
   };
-  const contextMenu = (e: React.MouseEvent, site: Site) => {
+  const contextMenu = (e: React.MouseEvent, site: Bookmark) => {
     e.preventDefault(); e.stopPropagation();
     const isFolder = site.kind === "folder";
     setMenu({
@@ -198,15 +198,15 @@ export function SitesPanel({ onOpenUrl, socket }: {
 
   // ── 历史 ──
   const bookmark = async (h: HistoryEntry) => {
-    try { await api.createSite({ url: h.url, title: h.title || undefined }); load(); } catch (e: any) { void dialog.alert(e?.message || "收藏失败"); }
+    try { await browserApi.createBookmark({ url: h.url, title: h.title || undefined }); load(); } catch (e: any) { void dialog.alert(e?.message || "收藏失败"); }
   };
   const forget = async (h: HistoryEntry) => {
-    try { await api.forgetHistory({ url: h.url }); loadHistory(); if (needle) setHits((rows) => rows.filter((r) => r.url !== h.url)); } catch { /* 同上 */ }
+    try { await browserApi.forgetHistory({ url: h.url }); loadHistory(); if (needle) setHits((rows) => rows.filter((r) => r.url !== h.url)); } catch { /* 同上 */ }
   };
   const clearHistory = async () => {
     if (!history.length) return;
     if (!(await dialog.confirm("清空全部浏览记录?不可恢复。", { danger: true, confirmText: "清空" }))) return;
-    try { await api.forgetHistory({ all: true }); loadHistory(); setHits([]); } catch { /* 同上 */ }
+    try { await browserApi.forgetHistory({ all: true }); loadHistory(); setHits([]); } catch { /* 同上 */ }
   };
   const historyMenu = (e: React.MouseEvent, h: HistoryEntry) => {
     e.preventDefault(); e.stopPropagation();
@@ -230,11 +230,11 @@ export function SitesPanel({ onOpenUrl, socket }: {
     try { await navigator.clipboard.writeText(text); showToast(`${what}已复制`); } catch { /* 剪贴板不可用 */ }
   };
   const copyPassword = async (p: PasswordEntry) => {
-    try { await copyText(await api.revealPassword(p.id), "密码"); } catch (e: any) { void dialog.alert(e?.message || "读不到密码"); }
+    try { await copyText(await browserApi.revealPassword(p.id), "密码"); } catch (e: any) { void dialog.alert(e?.message || "读不到密码"); }
   };
   const editPassword = async (p: PasswordEntry | null) => {
     let password = "";
-    if (p) { try { password = await api.revealPassword(p.id); } catch { password = ""; } }
+    if (p) { try { password = await browserApi.revealPassword(p.id); } catch { password = ""; } }
     setPwShowInput(false);
     setPwEditing({ id: p?.id || null, url: p?.url || "", username: p?.username || "", password, note: p?.note || "" });
   };
@@ -242,23 +242,23 @@ export function SitesPanel({ onOpenUrl, socket }: {
     if (!pwEditing) return;
     const { id, ...body } = pwEditing;
     try {
-      if (id) await api.updatePassword(id, body); else await api.createPassword(body);
+      if (id) await browserApi.updatePassword(id, body); else await browserApi.createPassword(body);
       setPwEditing(null); loadPasswords();
     } catch (e: any) { void dialog.alert(e?.message || "保存失败"); }
   };
   const removePassword = async (p: PasswordEntry) => {
     if (!(await dialog.confirm(`删除「${p.host || p.url}」的账号 ${p.username || ""} 的密码?不可恢复。`, { danger: true, confirmText: "删除" }))) return;
-    try { await api.removePassword(p.id); if (pwEditing?.id === p.id) setPwEditing(null); loadPasswords(); } catch { /* 同上 */ }
+    try { await browserApi.removePassword(p.id); if (pwEditing?.id === p.id) setPwEditing(null); loadPasswords(); } catch { /* 同上 */ }
   };
   const clearPasswords = async () => {
     if (!passwords.length) return;
     if (!(await dialog.confirm(`清空全部 ${passwords.length} 条密码?不可恢复。`, { danger: true, confirmText: "清空" }))) return;
-    try { await api.clearPasswords(); setPwEditing(null); loadPasswords(); } catch { /* 同上 */ }
+    try { await browserApi.clearPasswords(); setPwEditing(null); loadPasswords(); } catch { /* 同上 */ }
   };
   const exportPasswords = async () => {
     if (!passwords.length) return;
     try {
-      const csv = await api.exportPasswordsCsv();
+      const csv = await browserApi.exportPasswordsCsv();
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob); a.download = `passwords-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -282,7 +282,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
         const inote = col(["note", "notes", "备注"]);
         if (ipass < 0) { void dialog.alert("没找到密码列:CSV 第一行要有 password / 密码 这样的表头"); return; }
         const items = rows.slice(1).map((r) => ({ url: iu >= 0 ? r[iu] : "", username: iuser >= 0 ? r[iuser] : "", password: r[ipass] || "", note: inote >= 0 ? r[inote] : "" }));
-        const added = await api.importPasswords(items);
+        const added = await browserApi.importPasswords(items);
         loadPasswords();
         void dialog.alert(added ? `导入 ${added} 条` : "没有新条目(都已存在)");
       } catch (e: any) { void dialog.alert(e?.message || "导入失败"); }
@@ -362,9 +362,9 @@ export function SitesPanel({ onOpenUrl, socket }: {
     ids.splice(index, 0, movedId);
     setSites((prev) => prev.map((s) => (s.id === movedId ? { ...s, parent_id: parentId } : s)));
     if (parentId) setOpen((prev) => writeOpen(new Set(prev).add(parentId)));
-    void api.reorderSites({ parentId, ids }).then(setSites).catch(load);
+    void browserApi.reorderBookmarks({ parentId, ids }).then(setSites).catch(load);
   };
-  const startDrag = (e: React.PointerEvent, site: Site) => {
+  const startDrag = (e: React.PointerEvent, site: Bookmark) => {
     if (e.button !== 0 || needle) return;
     dragRef.current = { id: site.id, startY: e.clientY, dragging: false, drop: null };
     const onMove = (ev: PointerEvent) => {
@@ -394,7 +394,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
     window.addEventListener("pointerup", onUp);
   };
 
-  const Row = ({ site, depth }: { site: Site; depth: number }) => {
+  const Row = ({ site, depth }: { site: Bookmark; depth: number }) => {
     const isFolder = site.kind === "folder";
     const expanded = isFolder && open.has(site.id);
     const marker = drop?.overId === site.id ? drop.where : null;

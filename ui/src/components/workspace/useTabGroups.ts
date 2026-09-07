@@ -1,7 +1,14 @@
+import { type Chat } from "../../api/chats";
+import { type FileNode } from "../../api/files";
+import { type SkillInfo } from "../../api/skills";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { exactKey, hostKey } from "../../lib/urls";
-import type { Node, SkillInfo } from "../../api";
-import { isOpenableSpace, isNodeTab, chatStartTab, skillTab, gitTab, gitDiffTab, settingsTab, widgetsTab, taskTab, appTab, terminalTab, webTab, launcherTab, isWebTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
+import { isContentTab, chatStartTab, skillTab, gitTab, gitDiffTab, settingsTab, widgetsTab, taskTab, appTab, terminalTab, webTab, launcherTab, isWebTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
+
+const patchTab = <T extends WorkspaceTab>(tab: T, patch: Partial<Omit<T, "id" | "kind">>): T => {
+  const keys = Object.keys(patch) as (keyof typeof patch)[];
+  return keys.every((key) => tab[key] === patch[key]) ? tab : { ...tab, ...patch };
+};
 
 type UseTabGroupsOptions = {
   canCloseTab?: (tab: WorkspaceTab) => boolean | Promise<boolean>;
@@ -120,15 +127,15 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
       [targetId]: upsertTab(
         prev[targetId],
         tab,
-        !!opts.preview && isNodeTab(tab) && tab.kind === "file",
+        !!opts.preview && isContentTab(tab) && tab.kind === "file",
         !!opts.background,
       ),
     }));
     if (!opts.background) setActiveGroupId(targetId);
   }, []);
 
-  const openNode = useCallback((node: Node | null, opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean } = {}) => {
-    if (!isOpenableSpace(node)) return;
+  const openNode = useCallback((node: (Chat | FileNode) | null, opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean } = {}) => {
+    if (!node || node.kind === "folder") return;
     openTab(node, opts);
   }, [openTab]);
 
@@ -178,7 +185,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     }
     return null;
   }, []);
-
 
   /** 网页标签的标题/地址/图标跟着页面走(page-title-updated / did-navigate / page-favicon-updated)。无变化返回 prev,别造渲染。 */
   const updateWebTab = useCallback((id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => {
@@ -369,7 +375,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
   // 无变化必须返回 prev:这个函数被 chats_changed / 运行事件高频调用,曾经的版本
   // 无条件造新 state → 依赖 activeTab 引用的 effect 重跑 → 再 fetch 再 setState ——
   // 「fetch+渲染」死循环,四个进程一起烧 CPU 的元凶。
-  const updateNodeTab = useCallback((id: string, patch: Partial<Node>) => {
+  const updateContentTab = useCallback((id: string, update: (tab: WorkspaceTab) => WorkspaceTab) => {
     setGroups((prev) => {
       let changed = false;
       const next = { ...prev };
@@ -377,11 +383,10 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
         const group = prev[groupId];
         let groupChanged = false;
         const tabs = group.tabs.map((tab) => {
-          if (tab.id !== id || !isNodeTab(tab)) return tab;
-          const keys = Object.keys(patch) as (keyof Node)[];
-          if (keys.every((key) => tab[key] === patch[key])) return tab; // 补丁没带来变化
-          groupChanged = true;
-          return { ...tab, ...patch };
+          if (tab.id !== id) return tab;
+          const updated = update(tab);
+          if (updated !== tab) groupChanged = true;
+          return updated;
         });
         if (groupChanged) {
           next[groupId] = { ...group, tabs };
@@ -391,6 +396,14 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
       return changed ? next : prev;
     });
   }, []);
+
+  const updateChatTab = useCallback((id: string, patch: Partial<Omit<Chat, "id" | "kind">>) => {
+    updateContentTab(id, (tab) => tab.kind === "chat" ? patchTab(tab, patch) : tab);
+  }, [updateContentTab]);
+
+  const updateFileTab = useCallback((id: string, patch: Partial<Omit<FileNode, "id" | "kind">>) => {
+    updateContentTab(id, (tab) => tab.kind === "file" || tab.kind === "folder" ? patchTab(tab, patch) : tab);
+  }, [updateContentTab]);
 
   const removeNodeTab = useCallback((id: string) => {
     for (const groupId of groupOrder) closeTab(groupId, id);
@@ -428,7 +441,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     activeGroupId,
     activeGroup,
     activeTab,
-    activeNode: isNodeTab(activeTab) ? activeTab : null,
+    activeNode: isContentTab(activeTab) ? activeTab : null,
     focusGroup,
     toggleSideGroup,
     openNode,
@@ -454,7 +467,8 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     closeOthers,
     closeToRight,
     closeGroup,
-    updateNodeTab,
+    updateChatTab,
+    updateFileTab,
     removeNodeTab,
     pinPreviewTab,
     closeAll,

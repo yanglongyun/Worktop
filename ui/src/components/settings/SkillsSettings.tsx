@@ -1,6 +1,6 @@
+import { type SkillInfo, skillsApi } from "../../api/skills";
 import { useEffect, useRef, useState } from "react";
 import { FileText } from "lucide-react";
-import { api, type SkillInfo } from "../../api";
 import { Switch } from "../ui";
 
 export function SkillsSettings({ onOpenSkill }: { onOpenSkill: (skill: SkillInfo) => void }) {
@@ -10,7 +10,7 @@ export function SkillsSettings({ onOpenSkill }: { onOpenSkill: (skill: SkillInfo
   useEffect(() => {
     let active = true;
     setError("");
-    void api.listSkills().then((list) => { if (active) setSkills(list); })
+    void skillsApi.listSkills().then((list) => { if (active) setSkills(list); })
       .catch((e) => { if (active) setError(e instanceof Error ? e.message : "无法读取技能"); });
     return () => { active = false; };
   }, [attempt]);
@@ -39,7 +39,7 @@ function SkillRow({ skill, onOpen, onChanged }: {
   const toggle = async (enabled: boolean) => {
     if (pending.current) return;
     pending.current = true; setBusy(true); setError("");
-    try { await api.toggleSkill(skill.id, enabled); onChanged(enabled); }
+    try { await skillsApi.toggleSkill(skill.id, enabled); onChanged(enabled); }
     catch (e) { setError(e instanceof Error ? e.message : "更新失败，请重试。"); }
     finally { pending.current = false; setBusy(false); }
   };

@@ -1,8 +1,9 @@
+import { type Attachment } from "../../api/files";
+import { type MessageRow, type StoredItem } from "../../api/chats";
 // 邮箱行的渲染模型:落库的 Responses item → 用户看得懂的行。
 //
 // 行是**可变对象**:流式增量直接改字段,再靠 tick 触发重渲染。
 // React 用 key 复用 DOM,原地改内容不重挂(不闪、不丢滚动、不断选中)。
-import type { Attachment, MessageRow, StoredItem } from "../../api";
 
 export type Row = {
   key: string;
@@ -68,7 +69,6 @@ export const toolRow = (
   result: "",
   status,
 });
-
 
 /**
  * 历史行 → 渲染行。

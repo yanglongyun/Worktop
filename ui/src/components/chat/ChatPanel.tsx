@@ -1,3 +1,6 @@
+import { type ApprovalCard as Card, type Chat, chatsApi } from "../../api/chats";
+import { type Attachment, filesApi } from "../../api/files";
+import { settingsApi } from "../../api/settings";
 // 对话面板:一个对话的邮箱 + 输入器。
 // 行数组是可变结构(流式原地改行,tick 触发重渲染),事件按 chatId 认领 ——
 // 同一面板体系下,几个对话各开各的标签互不干扰,切走的运行在服务端继续转。
@@ -7,10 +10,6 @@ import { ApprovalCard } from "./ApprovalCard";
 import { RulesControl } from "./RulesControl";
 import { ModelSetupDialog } from "./ModelSetupDialog";
 import type { ChatStartTab } from "../workspace/types";
-import { permissionApi, type ApprovalCard as Card } from "../../lib/permission";
-
-import type { Attachment, Node } from "../../api";
-import { api } from "../../api";
 import { dialog } from "../ui";
 import { EVENTS } from "../../../../server/shared/events";
 import { MessageStream } from "./MessageStream";
@@ -25,12 +24,12 @@ export function ChatPanel({
   onOpenSettings,
   onCreated,
 }: {
-  node: Node | ChatStartTab;
-  onSelect: (n: Node) => void;
+  node: Chat | ChatStartTab;
+  onSelect: (n: Chat) => void;
   socket: { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
   onOpenNav?: () => void;
   onOpenSettings?: () => void;
-  onCreated?: (node: Node, prompt: string, attachments: Attachment[]) => void;
+  onCreated?: (node: Chat, prompt: string, attachments: Attachment[]) => void;
 }) {
   const isStart = node.kind === "chat-start";
   const creatingRef = useRef(false);
@@ -59,7 +58,7 @@ export function ChatPanel({
   // 配置保存后同步所有已打开的对话,无需切走再回来。
   useEffect(() => {
     let active = true;
-    const reload = () => { void api.getSettings()
+    const reload = () => { void settingsApi.getSettings()
       .then(({ settings: s }) => {
         if (!active) return;
         setConfigured(!!(s.model.trim() && s.apiUrl.trim()));
@@ -72,7 +71,7 @@ export function ChatPanel({
 
   const refresh = useCallback(async () => {
     if (isStart) return;
-    const result = await api.listMessages(node.id).catch(() => null);
+    const result = await chatsApi.listMessages(node.id).catch(() => null);
     if (!result) return;
     const next = renderRows(result.rows || []);
     // 同位置同类的行复用旧 key:React 原地复用 DOM,不整屏重挂
@@ -116,8 +115,8 @@ export function ChatPanel({
     });
     void refresh().then(() => setViewSeq((n) => n + 1));
     // busy 以服务端为准对一次账(node.status 可能是十秒前的)
-    void api.listRuns().then((r) => setBusy((r.ids || []).includes(node.id))).catch(() => {});
-    api.markAgentRead(node.id).catch(() => {});
+    void chatsApi.listRuns().then((r) => setBusy((r.ids || []).includes(node.id))).catch(() => {});
+    chatsApi.markRead(node.id).catch(() => {});
     return () => { streamRef.current = null; };
   }, [node.id]);
 
@@ -127,7 +126,7 @@ export function ChatPanel({
     const names = Object.values(EVENTS) as string[];
     const offs = names.map((name) => socket.on(name, (payload: any) => {
       streamRef.current?.onEvent(payload);
-      if (name === EVENTS.INPUT && payload.chatId === node.id) api.markAgentRead(node.id).catch(() => {});
+      if (name === EVENTS.INPUT && payload.chatId === node.id) chatsApi.markRead(node.id).catch(() => {});
     }));
     return () => { offs.forEach((off) => off()); };
   }, [node.id, socket]);
@@ -140,7 +139,7 @@ export function ChatPanel({
     element.style.height = Math.min(element.scrollHeight, 240) + "px";
   }, [prompt, configured]);
 
-  // 附件上传:选择 / 拖拽 / 粘贴共用一条路 —— base64 交给 /api/upload,只留元数据
+  // 附件上传:选择 / 拖拽 / 粘贴共用一条路 —— base64 交给 /api/files/upload,只留元数据
   const upload = async (files: FileList | File[]) => {
     setUploading(true);
     try {
@@ -152,7 +151,7 @@ export function ChatPanel({
           reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
           reader.readAsDataURL(file);
         });
-        const result = await api.uploadFile({ name: file.name || "粘贴的图片.png", mimeType: file.type, dataBase64 });
+        const result = await filesApi.uploadFile({ name: file.name || "粘贴的图片.png", mimeType: file.type, dataBase64 });
         next.push(result.attachment);
       }
       setAttachments((current) => [...current, ...next].slice(0, 10));
@@ -175,7 +174,7 @@ export function ChatPanel({
       creatingRef.current = true;
       setCreating(true);
       try {
-        const result = await api.createChat({ title: "" });
+        const result = await chatsApi.createChat({ title: "" });
         persistDraft("");
         onCreated(result.item, text, files);
       } catch (error) {
@@ -210,7 +209,7 @@ export function ChatPanel({
   useEffect(() => {
     setApprovals([]);
     if (isStart) return;
-    void permissionApi.listApprovals(node.id).then(setApprovals).catch(() => {});
+    void chatsApi.listApprovals(node.id).then(setApprovals).catch(() => {});
   }, [node.id]);
   useEffect(() => socket.on("approval_ask", (p: any) => {
     if (String(p?.chatId) !== node.id) return;
@@ -222,12 +221,12 @@ export function ChatPanel({
   const dismiss = (id: string) => setApprovals((list) => list.filter((c) => c.id !== id));
 
   const [rulesOn, setRulesOn] = useState(true);
-  useEffect(() => { void api.getSettings().then((r: any) => setRulesOn((r.settings?.rulesEnabled || "on") !== "off")).catch(() => {}); }, []);
+  useEffect(() => { void settingsApi.getSettings().then((r: any) => setRulesOn((r.settings?.rulesEnabled || "on") !== "off")).catch(() => {}); }, []);
   const changeRules = (next: boolean) => {
     setRulesOn(next);
     // 只改这一项:先取回整份再合并,免得把别的设置抹成默认值
-    void api.getSettings()
-      .then((r: any) => api.saveSettings({ ...(r.settings || {}), rulesEnabled: next ? "on" : "off" }))
+    void settingsApi.getSettings()
+      .then((r: any) => settingsApi.saveSettings({ ...(r.settings || {}), rulesEnabled: next ? "on" : "off" }))
       .catch(() => {});
   };
 

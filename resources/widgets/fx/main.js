@@ -25,7 +25,7 @@ const getRates = async (base) => {
   const hit = cache.get(base);
   if (hit && Date.now() - hit.at < TTL) return hit;
   const symbols = CCY.map(([c]) => c).filter((c) => c !== base).join(",");
-  const r = await post("/_wt/http", { url: `https://api.frankfurter.dev/v1/latest?base=${base}&symbols=${symbols}` });
+  const r = await post("/widgets/http", { url: `https://api.frankfurter.dev/v1/latest?base=${base}&symbols=${symbols}` });
   if (!r.ok) throw new Error(r.error);
   const d = JSON.parse(r.text);
   const entry = { at: Date.now(), rates: { ...d.rates, [base]: 1 }, date: d.date };

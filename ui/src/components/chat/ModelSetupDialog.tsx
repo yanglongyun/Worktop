@@ -1,6 +1,6 @@
+import { type Settings, settingsApi } from "../../api/settings";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2, X } from "lucide-react";
-import { api, type Settings } from "../../api";
 import { ModelConnectionFields } from "../settings/ModelConnectionFields";
 
 export function ModelSetupDialog({ onClose, onSaved }: {
@@ -15,7 +15,7 @@ export function ModelSetupDialog({ onClose, onSaved }: {
   useEffect(() => {
     dialogRef.current?.showModal();
     let active = true;
-    void api.getSettings().then((r) => { if (active) setForm(r.settings); })
+    void settingsApi.getSettings().then((r) => { if (active) setForm(r.settings); })
       .catch(() => { if (active) setError("暂时无法读取设置，请关闭后重试。"); });
     return () => { active = false; };
   }, []);
@@ -26,7 +26,7 @@ export function ModelSetupDialog({ onClose, onSaved }: {
     setError("");
     try {
       // 只覆盖连接字段,保留弹窗打开后在其他地方修改的设置。
-      const result = await api.saveSettings({
+      const result = await settingsApi.saveSettings({
         apiUrl: form.apiUrl.trim(), apiKey: form.apiKey.trim(), model: form.model.trim(),
       });
       onSaved(result.settings);
