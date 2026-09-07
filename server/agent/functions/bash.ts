@@ -17,6 +17,11 @@ const resolveShell = () => {
   }
   return "/bin/sh";
 };
+/** 怎么把一条命令交给 shell:macOS/Linux 走登录 shell 的 -lc;Windows 走 PowerShell(cmd 的引号规则没法给模型用)。 */
+const shellInvocation = (cmd: string): [string, string[]] =>
+  process.platform === "win32"
+    ? ["powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd]]
+    : [resolveShell(), ["-lc", cmd]];
 
 const TIMEOUT_MS = Math.max(5000, Number(process.env.WORKTOP_SHELL_TIMEOUT_MS) || 120_000);
 const RAW_MAX = 200_000; // 收集上限,只是内存护栏;给模型的截断在工具装配层统一做
@@ -72,7 +77,8 @@ export const bash = async ({ command, summary, background, cwd: requestedCwd }, 
   }
 
   return new Promise((resolve) => {
-    const child = spawn(resolveShell(), ["-lc", cmd], {
+    const [shellBin, shellArgs] = shellInvocation(cmd);
+    const child = spawn(shellBin, shellArgs, {
       cwd,
       env: process.env,
       detached: process.platform !== "win32",

@@ -1,14 +1,35 @@
+import { randomBytes } from "node:crypto";
 // Electron 壳:拉起本地服务(系统 node 跑 esbuild 单文件),窗口指向 127.0.0.1。
 //
 // 为什么用系统 node 而不是 Electron 自带的 Node:node-pty 是原生模块,按系统 node
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
-import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeTheme, session, shell } from "electron";
-import { readFileSync, writeFileSync } from "node:fs";
+import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeTheme, session, shell, safeStorage } from "electron";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// sidecar 的 node 可执行文件名:macOS 是 node,Windows 是 node.exe(scripts/prepare-node.mjs 同一规则)
+const NODE_BIN = process.platform === "win32" ? "node.exe" : "node";
+
+// 密码列的加密密钥:macOS 由 server 自己去钥匙串取;Windows 没有钥匙串,由壳用 safeStorage(DPAPI)
+// 保护一份密钥文件,启动时解出来经环境变量交给 server,永远不明文落盘。
+const passwordsKeyEnv = () => {
+  if (process.platform !== "win32") return {};
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return {};
+    const file = join(app.getPath("userData"), "passwords.key");
+    let hex = "";
+    if (existsSync(file)) hex = safeStorage.decryptString(readFileSync(file));
+    if (!/^[0-9a-f]{64}$/.test(hex)) {
+      hex = randomBytes(32).toString("hex");
+      writeFileSync(file, safeStorage.encryptString(hex));
+    }
+    return { WORKTOP_PASSWORDS_KEY: hex };
+  } catch { return {}; }
+};
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -37,13 +58,14 @@ const layout = () => {
   }
   const res = process.resourcesPath;
   return {
-    nodeBin: join(res, "core/bin/node"),
+    nodeBin: join(res, "core/bin", NODE_BIN),
     serverEntry: join(res, "core/server.mjs"),
     cwd: join(res, "core"), // node-pty 从 core/node_modules 解析
     env: {
       WORKTOP_PACKAGED: "1",                 // 遥测只在打包应用里发,开发态不打点
       WORKTOP_VERSION: app.getVersion(),
       WORKTOP_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
+      ...passwordsKeyEnv(),
       WORKTOP_UI_DIST: join(res, "core/ui"),
       WORKTOP_RESOURCES: join(res, "core/resources"),
     },
@@ -382,7 +404,7 @@ ipcMain.handle("worktop:chrome-import-available", async () => {
  * 脚本必须放在 asar 外面(extraResources):子进程是普通 Node,不认 asar。
  */
 const extractorRuntime = () => (app.isPackaged
-  ? { nodeBin: join(process.resourcesPath, "core/bin/node"), script: join(process.resourcesPath, "core/chromeExtract.mjs") }
+  ? { nodeBin: join(process.resourcesPath, "core/bin", NODE_BIN), script: join(process.resourcesPath, "core/chromeExtract.mjs") }
   : { nodeBin: "node", script: join(ROOT, "desktop/chromeExtract.mjs") });
 
 ipcMain.handle("worktop:chrome-profiles", async () => {

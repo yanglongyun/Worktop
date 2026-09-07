@@ -28,6 +28,11 @@ for (const [name, size] of SLOTS) {
 }
 await sharp(master).resize(512, 512).png().toFile(join(ROOT, "desktop/icon.png"));
 
-execFileSync("iconutil", ["-c", "icns", SET, "-o", join(ROOT, "desktop/icon.icns")]);
+if (process.platform === "darwin") {
+  execFileSync("iconutil", ["-c", "icns", SET, "-o", join(ROOT, "desktop/icon.icns")]);
+  console.log("icon: desktop/icon.icns + desktop/icon.png 已生成");
+} else {
+  // Windows 用 electron-builder 从 512 png 自己生成 ico;icns 只有 macOS 能收
+  console.log("icon: desktop/icon.png 已生成(非 macOS 不出 icns)");
+}
 rmSync(SET, { recursive: true, force: true });
-console.log("icon: desktop/icon.icns + desktop/icon.png 已生成");
