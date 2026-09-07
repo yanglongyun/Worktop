@@ -90,7 +90,6 @@
 主界面 API 按 `chats`、`files`、`browser`、`apps`、`widgets`、`skills`、`settings`、`system`、`git` 分组。常用目录在 `/api/files/roots`，全局规则在 `/api/settings/rules`。固定路由段用小写单词和 `/` 层级。
 
 主界面的双向通道是 `/api/ws`，健康检查是 `/health`。
-完整方法、路径与用途见 [HTTP 路由清单](docs/http-routes.md)。
 
 ## 用起来什么感觉
 
