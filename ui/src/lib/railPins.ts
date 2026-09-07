@@ -16,7 +16,7 @@ export type RailPin = {
 const KEY = "worktop.rail.pins";
 const EVENT = "worktop:rail-pins-changed";
 
-export const readPins = (): RailPin[] => {
+const readPins = (): RailPin[] => {
   try {
     const raw = localStorage.getItem(KEY);
     const value = raw == null ? null : JSON.parse(raw);
@@ -24,7 +24,7 @@ export const readPins = (): RailPin[] => {
   } catch { return []; }
 };
 
-export const writePins = (pins: RailPin[]) => {
+const writePins = (pins: RailPin[]) => {
   try { localStorage.setItem(KEY, JSON.stringify(pins)); } catch { /* 隐私模式:本次会话内仍然生效 */ }
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { pins } }));
 };

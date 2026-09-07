@@ -20,7 +20,7 @@ const write = (value: string) => {
 
 /** 引导条该不该出现:没导过、没关过,才提示。 */
 export const shouldPromptImport = () => !read();
-export const markImported = () => write("done");
+const markImported = () => write("done");
 export const dismissImportPrompt = () => write("dismissed");
 
 /** 这台机器能不能导(macOS + 装了 Chrome);非桌面壳一律 false。 */

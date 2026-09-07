@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 const KEY = "worktop.widgets.order";
 const EVENT = "worktop:widget-order-changed";
 
-export const readOrder = (): string[] => {
+const readOrder = (): string[] => {
   try {
     const raw = localStorage.getItem(KEY);
     const value = raw == null ? null : JSON.parse(raw);

@@ -43,7 +43,7 @@ const parseArgs = (value: unknown): Record<string, any> => {
 };
 
 /** item 里的纯文本:content 可能是串或分段;思考在 summary/content 里。 */
-export const itemText = (item: StoredItem): string => {
+const itemText = (item: StoredItem): string => {
   if (item.type === "reasoning") {
     const parts = [...(item.summary || []), ...(Array.isArray(item.content) ? item.content : [])];
     return parts.map((part) => String(part?.text || "")).join("");

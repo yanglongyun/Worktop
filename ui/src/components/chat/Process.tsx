@@ -107,7 +107,7 @@ const Block = ({ children }: { children: ReactNode }) => (
 
 /* ── 思考条目 ── */
 
-export function ThinkItem({ row, compact }: { row: Row; compact?: boolean }) {
+function ThinkItem({ row, compact }: { row: Row; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const thinking = Boolean(row.streaming && !row.content);
   return (
@@ -124,7 +124,7 @@ export function ThinkItem({ row, compact }: { row: Row; compact?: boolean }) {
 
 /* ── 工具条目 ── */
 
-export function ToolItem({ row, compact }: { row: Row; compact?: boolean }) {
+function ToolItem({ row, compact }: { row: Row; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const meta = toolMeta(row);
   const running = row.status === "running";
@@ -198,7 +198,7 @@ const groupIcon = (rows: Row[]) => {
   return toolMeta(pick).icon;
 };
 
-export function ToolGroup({ rows }: { rows: Row[] }) {
+function ToolGroup({ rows }: { rows: Row[] }) {
   const [open, setOpen] = useState(false);
   const faded = rows.every(isFailed);
   return (

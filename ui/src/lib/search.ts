@@ -19,7 +19,7 @@ export const getSearchEngine = () => {
 export const setSearchEngine = (id: SearchEngineId) => {
   try { localStorage.setItem(KEY, id); } catch { /* 隐私模式 */ }
 };
-export const searchUrl = (query: string) => getSearchEngine().template.replace("%s", encodeURIComponent(query.trim()));
+const searchUrl = (query: string) => getSearchEngine().template.replace("%s", encodeURIComponent(query.trim()));
 
 /** 地址栏的老规矩:像网址就当网址开,不像就拿去搜。 */
 export const toNavigableUrl = (input: string): string => {

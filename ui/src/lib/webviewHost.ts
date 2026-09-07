@@ -28,7 +28,7 @@ export const wcIdForTab = (tabId: string): number | null => {
 /** 服务器重启后注册表清零 —— 广播这个事件让每个 WebPanel 重新注册。 */
 export const RE_REGISTER_EVENT = "worktop:web-reregister";
 /** 截图前把目标标签翻到前台(App 监听):隐藏的 <webview> 画不出图,capturePage 会挂起。 */
-export const ACTIVATE_EVENT = "worktop:web-activate";
+const ACTIVATE_EVENT = "worktop:web-activate";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

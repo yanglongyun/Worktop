@@ -3,7 +3,7 @@
   "version": "1.6.0",
   "private": true,
   "type": "module",
-  "description": "Worktop — 本地 AI 工作台:对话绑定真实工作目录,AI 产出真实文件",
+  "description": "Worktop — 个人 AI 工作台:对话、文件、浏览器与应用",
   "author": "woodchange",
   "main": "desktop/main.js",
   "scripts": {
@@ -125,6 +125,7 @@
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/lang-xml": "^6.1.0",
     "@codemirror/lang-yaml": "^6.1.3",
+    "@codemirror/language": "^6.12.3",
     "@codemirror/legacy-modes": "^6.5.3",
     "@codemirror/merge": "^6.12.2",
     "@codemirror/state": "^6.6.0",

@@ -3,7 +3,7 @@
 //   展示形 —— 界面用:隐藏 https:// 与尾斜杠(http:// 例外,异常要看得见);
 //   身份键 —— 去重/聚焦用:主机去 www.、小写、忽略协议与尾斜杠 ——
 //             www.google.com / https://google.com/ / http://Google.com 是同一个站。
-export const parseUrl = (raw: string): URL | null => {
+const parseUrl = (raw: string): URL | null => {
   const value = String(raw || "").trim();
   if (!value) return null;
   try {

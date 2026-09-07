@@ -68,7 +68,7 @@ export const servePermissions = (browsing, toRenderer) => {
 };
 
 /** 用户在设置里清空网站权限 —— 问过的重新问一遍。 */
-export const forgetPermissions = () => decided.clear();
+const forgetPermissions = () => decided.clear();
 
 // ── HTTP 认证(Basic / Digest)────────────────────────────────────────
 export const serveHttpAuth = (toRenderer) => {
@@ -106,8 +106,8 @@ export const serveCertErrors = (browsing, toRenderer) => {
   });
 };
 
-export const trustCertHost = (host) => { if (host) trusted.add(String(host)); };
-export const forgetCertHosts = () => trusted.clear();
+const trustCertHost = (host) => { if (host) trusted.add(String(host)); };
+const forgetCertHosts = () => trusted.clear();
 
 // ── 界面的回话口 ────────────────────────────────────────────────────────
 export const serveAnswers = () => {
