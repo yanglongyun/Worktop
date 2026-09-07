@@ -5,7 +5,7 @@ import { type Chat, chatsApi } from "../../../api/chats";
 // 不猜输入是什么:模式由框内左侧三个图标显式切换(⌘1/2/3、Tab),记住上次的模式。
 // 网址卡里不是网址的就交给 Google(地址栏的老规矩);命令卡留空回车只开终端,输了命令就开终端并执行。
 import { useEffect, useRef, useState } from "react";
-import { Bot, Globe, Terminal } from "lucide-react";
+import { Bot, Globe, Terminal } from "../../ui/icons";
 import { Favicon } from "../../ui";
 import type { LauncherTab, WorkspaceGroupId } from "../types";
 

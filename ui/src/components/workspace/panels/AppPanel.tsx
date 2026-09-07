@@ -6,7 +6,7 @@ import { appsApi } from "../../../api/apps";
 // (0.8.0 用路径前缀挂载踩过的坑,这套模型从根上不存在)。
 import { useCallback, useEffect, useState } from "react";
 import type { AppTab } from "../types";
-import { AlertTriangle, RotateCw } from "lucide-react";
+import { AlertTriangle, RotateCw } from "../../ui/icons";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 

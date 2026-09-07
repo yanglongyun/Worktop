@@ -3,7 +3,7 @@ import { type HistoryEntry, browserApi } from "../../../api/browser";
 // 纯浏览器里没有这个标签,给一块诚实的兜底(日常站点普遍禁 iframe,不装能行)。
 // 面板由 WorkspaceGroup 常驻挂载、CSS 控显隐 —— 卸载 = 断网重载,登录态全丢。
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download as DownloadIcon, ExternalLink, Globe, History, KeyRound, MoreHorizontal, RotateCw, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download as DownloadIcon, ExternalLink, Globe, History, Key, MoreHorizontal, RotateCw, Star, Trash, X } from "../../ui/icons";
 import type { WorkspaceGroupId, WebTab } from "../types";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 import { displayUrl, hostKey, normalizeUrl } from "../../../lib/urls";
@@ -340,7 +340,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
                             .then(() => setHistoryRows((rows) => rows.filter((r) => r.url !== row.url)));
                         }}
                       >
-                        <Trash2 size={11} />
+                        <Trash size={11} />
                       </button>
                     </div>
                   ))}
@@ -425,7 +425,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
               <div className="absolute top-full right-0 mt-1 z-50 w-56 py-1 rounded-lg border border-border bg-bg-raised shadow-lg text-[13px]">
                 {/* 登录态排第一 —— 它是这个浏览器能不能用起来的前提,不是杂项 */}
                 <button className={menuItem} onClick={() => { setMenuOpen(false); runImport(); }}>
-                  <span className="flex items-center gap-2"><KeyRound size={13} /> 导入 Chrome 登录状态</span>
+                  <span className="flex items-center gap-2"><Key size={13} /> 导入 Chrome 登录状态</span>
                 </button>
                 <div className={menuDiv} />
                 <button className={menuItem} onClick={() => { setMenuOpen(false); setFinding(true); setTimeout(() => findRef.current?.focus(), 0); }}>
@@ -474,7 +474,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
           而不是等用户自己翻到设置页去找 */}
       {promptImport && (
         <div className="shrink-0 flex items-start gap-2.5 px-3 py-2 border-b border-border bg-accent/[0.06]">
-          <KeyRound size={14} className="mt-0.5 shrink-0 text-accent" />
+          <Key size={14} className="mt-0.5 shrink-0 text-accent" />
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-text">导入 Chrome 登录状态</div>
             <div className="mt-0.5 text-[11.5px] text-text-faint leading-relaxed">

@@ -4,9 +4,9 @@
 // browser 不进分组 —— 浏览器操作用户要看得见,永远单独可见。
 import { useState, type ReactNode } from "react";
 import {
-  ChevronRight, FilePlus2, FileText, Globe, Loader2,
+  ChevronRight, FilePlus, FileText, Globe, Loader,
   Pencil, Play, Sparkles, Terminal,
-} from "lucide-react";
+} from "../ui/icons";
 import { renderMarkdown } from "../../lib/markdown";
 import type { Row } from "./thread";
 
@@ -41,7 +41,7 @@ const toolMeta = (row: Row): { icon: ReactNode; label: string; pill: string; wid
     case "edit":
       return { icon: <Pencil size={13} />, label: "修改", pill: basename(args.path) || summary, wide: false };
     case "write":
-      return { icon: <FilePlus2 size={14} />, label: "写入", pill: basename(args.path) || summary, wide: false };
+      return { icon: <FilePlus size={14} />, label: "写入", pill: basename(args.path) || summary, wide: false };
     case "browser": {
       const action = String(args.action ?? "");
       const pill = summary || String(args.url ?? args.selector ?? args.code ?? "");
@@ -295,7 +295,7 @@ export function TurnEntries({ items }: { items: TurnEntry[] }) {
 export function Working() {
   return (
     <div className="flex items-center gap-2 min-h-6">
-      <Loader2 size={14} className="animate-spin text-accent shrink-0" />
+      <Loader size={14} className="animate-spin text-accent shrink-0" />
       <span className="sheen text-[13.5px] leading-5 whitespace-nowrap">正在工作…</span>
     </div>
   );

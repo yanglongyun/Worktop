@@ -1,7 +1,7 @@
 import { type Chat, chatsApi } from "../../api/chats";
 import { type FileNode, filesApi } from "../../api/files";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot } from "lucide-react";
+import { Bot } from "../ui/icons";
 import { fileIconFor, fileColorFor } from "../files/icons";
 import { fuzzy } from "../../lib/fuzzy";
 

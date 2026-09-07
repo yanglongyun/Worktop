@@ -3,7 +3,7 @@
 //   官方公告 —— api.worktop.iimos.ai 的 notices,启动拉一次 + 每 6 小时,看过的 id 记 localStorage。
 // 都拿不到就安静,绝不打扰。
 import { useEffect, useState } from "react";
-import { ArrowUpCircle, Megaphone, X } from "lucide-react";
+import { ArrowUpCircle, Megaphone, X } from "./icons";
 
 type Notice = { id: number; title: string; body: string; url: string };
 

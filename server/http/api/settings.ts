@@ -1,7 +1,6 @@
 // 设置:模型连接、默认提示词、压缩水位等。
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRule, deleteRule, listRules, reorderRules, updateRule } from "../../settings/rules.js";
-import { DEFAULT_PROMPTS } from "../../settings/defaults.js";
 import { getSettings, saveSettings } from "../../settings/store.js";
 import { json, parseBody } from "./helpers.js";
 
@@ -45,7 +44,7 @@ export const handleSettingsRoutes = async (req: IncomingMessage, res: ServerResp
   }
 
   if (p !== "/api/settings") return false;
-  if (method === "GET") { json(res, 200, { ok: true, settings: getSettings(), promptDefaults: DEFAULT_PROMPTS }); return true; }
+  if (method === "GET") { json(res, 200, { ok: true, settings: getSettings() }); return true; }
   if (method === "POST") { json(res, 200, { ok: true, settings: saveSettings(await parseBody(req)) }); return true; }
   return false;
 };

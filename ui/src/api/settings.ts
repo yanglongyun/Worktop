@@ -14,8 +14,6 @@ export type Settings = {
   rulesEnabled?: string;
 };
 
-export type PromptDefaults = { system: string; compactPrompt: string };
-
 export type Rule = {
   id: string;
   text: string;
@@ -24,7 +22,7 @@ export type Rule = {
 };
 
 export const settingsApi = {
-  getSettings: () => request<{ settings: Settings; promptDefaults: PromptDefaults }>("/api/settings"),
+  getSettings: () => request<{ settings: Settings }>("/api/settings"),
   saveSettings: (s: Partial<Settings>) =>
     request<{ settings: Settings }>("/api/settings", { method: "POST", ...jsonBody(s) }).then((result) => {
       window.dispatchEvent(new Event("worktop:settings-saved"));

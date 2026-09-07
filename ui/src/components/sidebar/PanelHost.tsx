@@ -15,7 +15,7 @@ import { appsApi } from "../../api/apps";
 import { useEffect, useRef, useState } from "react";
 import { ContextMenu, Favicon, dialog, type MenuItem } from "../ui";
 import { isPinned, togglePin, unpin, useRailPins, type RailPin } from "../../lib/railPins";
-import { Activity, ChevronLeft, PanelLeft, Pin, PinOff, Plus, Puzzle, Settings, Trash2, X } from "lucide-react";
+import { Activity, ChevronLeft, PanelLeft, Pin, PinOff, Plus, Puzzle, Settings, Trash, X } from "../ui/icons";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { CREATE_WIDGET_EVENT, applyOrder, dropFromOrder, useWidgetOrder, writeOrder } from "../../lib/widgetOrder";
 import { EVENTS } from "../../../../server/shared/events";
@@ -361,7 +361,7 @@ export function PanelHost({
         { label: pinned ? "从活动栏取消固定" : "固定到活动栏", icon: pinned ? <PinOff size={13} /> : <Pin size={13} />,
           onClick: () => { togglePin({ kind: "widget", id: widget.id, title: widget.name, icon: widget.icon }); } },
         "divider",
-        { label: `删除组件「${widget.name}」`, icon: <Trash2 size={13} />, danger: true, onClick: () => void removeWidget(widget) },
+        { label: `删除组件「${widget.name}」`, icon: <Trash size={13} />, danger: true, onClick: () => void removeWidget(widget) },
       ],
     });
   };

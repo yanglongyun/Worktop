@@ -12,7 +12,7 @@ import { PanelHost } from "./components/sidebar";
 import { WorkspaceLayout, isAppTab, isSettingsTab, isContentTab, useTabGroups, terminalTab, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { toNavigableUrl } from "./lib/search";
 import { BrowsingPrompts, DialogHost, dialog, showToast, SystemNotices, ToastHost } from "./components/ui";
-import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, X, PanelRight } from "lucide-react";
+import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, X, PanelRight } from "./components/ui/icons";
 
 export function App() {
   const socket = useSocket();

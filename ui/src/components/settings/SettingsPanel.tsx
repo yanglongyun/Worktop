@@ -1,10 +1,10 @@
-import { type PromptDefaults, type Settings, settingsApi } from "../../api/settings";
+import { type Settings, settingsApi } from "../../api/settings";
 import { type SkillInfo } from "../../api/skills";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
 import { SEARCH_ENGINES, getSearchEngine, setSearchEngine, type SearchEngineId } from "../../lib/search";
 import { chromeImportAvailable } from "../../lib/chromeImport";
-import { Bot, Check, ExternalLink, Globe, Info, Loader2, Settings2, Sparkles, SlidersHorizontal } from "lucide-react";
+import { Bot, Check, ExternalLink, Globe, Info, Loader, Settings as SettingsIcon, Sparkles, SlidersHorizontal } from "../ui/icons";
 import { ChromeImportDialog } from "../ui";
 import { ModelConnectionFields, settingsInputClass as inputClass } from "./ModelConnectionFields";
 import { SkillsSettings } from "./SkillsSettings";
@@ -16,8 +16,8 @@ const emptySettings: Settings = {
 const categories = [
   { id: "model", label: "模型", icon: Bot, description: "连接模型，设置助手的回应方式。" },
   { id: "browser", label: "浏览器", icon: Globe, description: "管理搜索偏好、导入数据和网站状态。" },
-  { id: "skills", label: "技能", icon: Sparkles, description: "管理助手可使用的技能，查看说明或调整启用状态。" },
-  { id: "general", label: "通用", icon: Settings2, description: "让 Worktop 更符合你的使用习惯。" },
+  { id: "skills", label: "技能", icon: Sparkles, description: "点击技能名称，在新标签页阅读说明。" },
+  { id: "general", label: "通用", icon: SettingsIcon, description: "让 Worktop 更符合你的使用习惯。" },
   { id: "advanced", label: "高级", icon: SlidersHorizontal, description: "调整长对话和工具结果的处理方式。" },
   { id: "about", label: "关于", icon: Info, description: "Worktop · 本地 AI 工作台" },
 ] as const;
@@ -31,7 +31,6 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
   const [category, setCategory] = useState<Category>("model");
   const [form, setForm] = useState<Settings>(emptySettings);
   const [baseline, setBaseline] = useState<Settings>(emptySettings);
-  const [promptDefaults, setPromptDefaults] = useState<PromptDefaults>({ system: "", compactPrompt: "" });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -44,10 +43,10 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
   useEffect(() => {
     let active = true;
     setLoadError("");
-    void settingsApi.getSettings().then(({ settings, promptDefaults }) => {
+    void settingsApi.getSettings().then(({ settings }) => {
       if (!active) return;
       const current = { ...emptySettings, ...settings };
-      setForm(current); setBaseline(current); setPromptDefaults(promptDefaults); setLoaded(true);
+      setForm(current); setBaseline(current); setLoaded(true);
     }).catch((e) => { if (active) setLoadError(e instanceof Error ? e.message : "无法读取设置"); });
     return () => { active = false; };
   }, [loadAttempt]);
@@ -100,7 +99,7 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
       </div>
       <main role="tabpanel" id={`${tabId}-panel`} aria-labelledby={`${tabId}-${category}`} tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none">
         <div className="mx-auto max-w-4xl px-8 py-6 @max-[640px]:px-5 @max-[640px]:py-6">
-          <header className="mb-6 border-b border-border pb-4"><h1 className="text-[17px] font-semibold text-text">{selected.label}</h1>
+          <header className="mb-4 border-b border-border pb-4"><h1 className="text-[17px] font-semibold text-text">{selected.label}</h1>
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-text-faint">{selected.description}</p></header>
           {!loaded ? <div className="py-8 text-[13px] text-text-dim">{loadError ? <><p role="alert" className="mb-3 text-danger">{loadError}</p><button className={secondaryButton} onClick={() => setLoadAttempt((n) => n + 1)}>重新加载</button></> : "正在读取设置…"}</div> : <>
             <div hidden={category !== "model"} className="space-y-6">
@@ -112,7 +111,7 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
               </Section>
               <Section title="助手指令" description="作为默认系统提示词，设定助手的语气、偏好与工作方式。">
                 <form onSubmit={(e) => { e.preventDefault(); void save("system", { system: form.system }); }}>
-                  <PromptEditor label="助手指令" name="system" value={form.system} defaultValue={promptDefaults.system}
+                  <PromptEditor label="助手指令" name="system" value={form.system}
                     disabled={states.system?.busy} onChange={(value) => edit("system", value, "system")} />
                   <SaveFooter dirty={dirty(["system"])} state={states.system} />
                 </form>
@@ -153,7 +152,7 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
                     <div className="border-t border-border pt-4">
                       <h3 className="text-[13px] font-medium text-text">压缩提示词</h3>
                       <p className="mb-3 mt-2 text-[12px] leading-relaxed text-text-faint">控制历史对话如何被总结。</p>
-                      <PromptEditor label="压缩提示词" name="compactPrompt" value={form.compactPrompt ?? ""} defaultValue={promptDefaults.compactPrompt}
+                      <PromptEditor label="压缩提示词" name="compactPrompt" value={form.compactPrompt ?? ""}
                         disabled={states.advanced?.busy} onChange={(value) => edit("compactPrompt", value, "advanced")} />
                     </div>
                   </fieldset>
@@ -172,17 +171,11 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
   </div>;
 }
 
-function PromptEditor({ label, name, value, defaultValue, disabled, onChange }: {
-  label: string; name: string; value: string; defaultValue: string; disabled?: boolean; onChange: (value: string) => void;
+function PromptEditor({ label, name, value, disabled, onChange }: {
+  label: string; name: string; value: string; disabled?: boolean; onChange: (value: string) => void;
 }) {
-  return <>
-    <textarea aria-label={label} name={name} className={`${inputClass} min-h-32 resize-y leading-relaxed`} rows={5}
-      value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
-    <div className="mt-2 flex items-center justify-between gap-3">
-      <span className="text-[12px] text-text-faint">保存后生效，留空保存将恢复默认。</span>
-      <button type="button" className={secondaryButton} disabled={disabled || value === defaultValue} onClick={() => onChange(defaultValue)}>恢复默认</button>
-    </div>
-  </>;
+  return <textarea aria-label={label} name={name} className={`${inputClass} min-h-32 resize-y leading-relaxed`} rows={5}
+    value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
 }
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
@@ -206,7 +199,7 @@ function SaveFooter({ dirty, state, disabled }: { dirty: boolean; state?: SaveSt
   return <><SaveFeedback state={state} />{dirty && <div className="mt-4 flex items-center justify-between gap-3">
     <span className="text-[12px] text-text-faint">有未保存的更改</span>
     <button type="submit" disabled={state?.busy || disabled} className="inline-flex items-center gap-1.5 bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-40">
-      {state?.busy && <Loader2 size={13} className="animate-spin" />}{state?.busy ? "保存中…" : "保存更改"}
+      {state?.busy && <Loader size={13} className="animate-spin" />}{state?.busy ? "保存中…" : "保存更改"}
     </button>
   </div>}</>;
 }

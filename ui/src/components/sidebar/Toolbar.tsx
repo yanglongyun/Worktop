@@ -1,7 +1,7 @@
 // 三段共用的工具行:搜索 + ＋(本段主动作)+ ⋯(本段次要操作)。
 // 搜索只搜本段;＋ 可以是一个动作,也可以是一小组动作(弹菜单);⋯ 每次打开现算菜单项(勾选项要即时跟着变)。
 import { useState } from "react";
-import { MoreHorizontal, Plus, X } from "lucide-react";
+import { MoreHorizontal, Plus, X } from "../ui/icons";
 import { ContextMenu, type MenuItem } from "../ui";
 
 export function Toolbar({

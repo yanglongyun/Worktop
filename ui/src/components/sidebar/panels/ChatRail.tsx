@@ -4,7 +4,7 @@ import { type Chat, chatsApi } from "../../../api/chats";
 // 置顶 / 最近两组;行上呼吸点 = 正在运行,绿点 = 未读;悬停 ⋯ 出操作。
 import { useCallback, useEffect, useState } from "react";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { MoreVertical, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash } from "../../ui/icons";
 import { relativeTime, toggleChatRowField, useChatRowFields, type ChatRowFields } from "../../../lib/chatRows";
 import { PanelEmptyState } from "./PanelEmptyState";
 import { PanelCreateAction } from "./PanelCreateAction";
@@ -83,7 +83,7 @@ export function ChatRail({
           onClick: async () => { await chatsApi.updateChat(agent.id, { pinned: !agent.pinned }); load(); } },
         { label: "重命名", icon: <Pencil size={13} />, onClick: () => { setRenamingId(agent.id); setRenameDraft(agent.title); } },
         "divider",
-        { label: "删除", icon: <Trash2 size={13} />, danger: true,
+        { label: "删除", icon: <Trash size={13} />, danger: true,
           onClick: async () => {
             if (!(await dialog.confirm(`删除对话「${agent.title}」?\n全部消息记录会一并删除。`, { danger: true, confirmText: "删除" }))) return;
             await chatsApi.deleteChat(agent.id);

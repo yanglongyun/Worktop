@@ -10,7 +10,7 @@ import { type HistoryEntry, type PasswordEntry, type Bookmark, browserApi } from
 // 拖拽用指针事件,和标签栏同一套路:超阈值才算拖、挂 lib/drag.ts 的
 // 全局护栏(webview/iframe 会吞 pointerup)、松手事件被吞时靠 buttons===0 自愈。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Pin, PinOff, Trash2, Upload, User, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, Key, Pencil, Plus, Star, Pin, PinOff, Trash, Upload, User, X } from "../../ui/icons";
 import { isPinned, togglePin } from "../../../lib/railPins";
 import { beginGlobalDrag, endGlobalDrag } from "../../../lib/drag";
 import { ChromeImportDialog, ContextMenu, dialog, showToast, type MenuItem } from "../../ui";
@@ -191,7 +191,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
           ]),
         { label: isFolder ? "重命名" : "编辑", icon: <Pencil size={13} />, onClick: () => editSite(site) },
         "divider" as const,
-        { label: isFolder ? "删除文件夹" : "移除", icon: <Trash2 size={13} />, danger: true, onClick: () => void remove(site) },
+        { label: isFolder ? "删除文件夹" : "移除", icon: <Trash size={13} />, danger: true, onClick: () => void remove(site) },
       ],
     });
   };
@@ -217,7 +217,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
         { label: "打开", icon: <Globe size={13} />, onClick: () => onOpenUrl(h.url, h.title) },
         { label: saved ? "已在收藏里" : "收藏", icon: <Star size={13} />, disabled: saved, onClick: () => void bookmark(h) },
         "divider" as const,
-        { label: "从历史里删除", icon: <Trash2 size={13} />, danger: true, onClick: () => void forget(h) },
+        { label: "从历史里删除", icon: <Trash size={13} />, danger: true, onClick: () => void forget(h) },
       ],
     });
   };
@@ -294,12 +294,12 @@ export function SitesPanel({ onOpenUrl, socket }: {
     setMenu({
       x: e.clientX, y: e.clientY,
       items: [
-        { label: "复制密码", icon: <KeyRound size={13} />, onClick: () => void copyPassword(p) },
+        { label: "复制密码", icon: <Key size={13} />, onClick: () => void copyPassword(p) },
         { label: "复制账号", icon: <User size={13} />, disabled: !p.username, onClick: () => void copyText(p.username, "账号") },
         { label: "打开网站", icon: <Globe size={13} />, disabled: !p.url, onClick: () => onOpenUrl(p.url, p.host) },
         { label: "编辑", icon: <Pencil size={13} />, onClick: () => void editPassword(p) },
         "divider" as const,
-        { label: "删除", icon: <Trash2 size={13} />, danger: true, onClick: () => void removePassword(p) },
+        { label: "删除", icon: <Trash size={13} />, danger: true, onClick: () => void removePassword(p) },
       ],
     });
   };
@@ -320,13 +320,13 @@ export function SitesPanel({ onOpenUrl, socket }: {
       { label: "折叠全部", icon: <ChevronsDownUp size={13} />, disabled: !open.size, onClick: collapseAll },
     ]
     : view === "history"
-      ? [{ label: "清空浏览记录", icon: <Trash2 size={13} />, danger: true, disabled: !history.length, onClick: () => void clearHistory() }]
+      ? [{ label: "清空浏览记录", icon: <Trash size={13} />, danger: true, disabled: !history.length, onClick: () => void clearHistory() }]
       : [
         { label: "从 Chrome 导入…", icon: <Download size={13} />, onClick: () => setImportOpen(true) },
         { label: "导入 CSV…", icon: <Upload size={13} />, onClick: importCsv },
         { label: "导出 CSV", icon: <Download size={13} />, disabled: !passwords.length, onClick: () => void exportPasswords() },
         "divider",
-        { label: "清空全部密码", icon: <Trash2 size={13} />, danger: true, disabled: !passwords.length, onClick: () => void clearPasswords() },
+        { label: "清空全部密码", icon: <Trash size={13} />, danger: true, disabled: !passwords.length, onClick: () => void clearPasswords() },
       ];
 
   // ── 拖拽(仅收藏树)──
@@ -534,7 +534,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
           title={p.url || p.host}
           className="group flex items-center gap-2 py-[5px] px-3 cursor-pointer select-none hover:bg-bg-hover"
         >
-          {p.url ? <Favicon url={p.url} /> : <KeyRound size={14} className="shrink-0 text-text-faint" />}
+          {p.url ? <Favicon url={p.url} /> : <Key size={14} className="shrink-0 text-text-faint" />}
           <div className="flex-1 min-w-0">
             <div className="truncate text-[13.5px] text-text">{p.host || p.url || "(无网址)"}</div>
             <div className="truncate text-[11.5px] text-text-faint font-mono">
@@ -550,7 +550,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
             <User size={12} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); void copyPassword(p); }} title="复制密码" className={actionBtn}>
-            <KeyRound size={12} />
+            <Key size={12} />
           </button>
         </div>
         {pwEditing?.id === p.id && passwordEditor()}
@@ -580,7 +580,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
     <div className="flex-1 min-h-0 flex flex-col">
       {/* 子视图切换 */}
       <div className="shrink-0 flex px-2 pt-1.5 pb-1">
-        {([["sites", "收藏", Star], ["history", "历史", History], ["passwords", "密码", KeyRound]] as const).map(([id, label, Icon]) => (
+        {([["sites", "收藏", Star], ["history", "历史", History], ["passwords", "密码", Key]] as const).map(([id, label, Icon]) => (
           <button
             key={id}
             onClick={() => switchView(id)}

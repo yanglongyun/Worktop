@@ -5,7 +5,7 @@ import { settingsApi } from "../../api/settings";
 // 行数组是可变结构(流式原地改行,tick 触发重渲染),事件按 chatId 认领 ——
 // 同一面板体系下,几个对话各开各的标签互不干扰,切走的运行在服务端继续转。
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, FileText, Folder, LayoutGrid, Paperclip, PenLine, Plug, Send, Square, X } from "lucide-react";
+import { ArrowRight, FileText, Folder, LayoutGrid, Paperclip, Pencil, Plug, Send, Square, X } from "../ui/icons";
 import { ApprovalCard } from "./ApprovalCard";
 import { RulesControl } from "./RulesControl";
 import { ModelSetupDialog } from "./ModelSetupDialog";
@@ -369,7 +369,7 @@ export function ChatPanel({
         {empty && <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {[
             { label: "整理文件", icon: Folder, prompt: "帮我整理文件。先查看我指定的目录，提出分类建议，确认后再移动。" },
-            { label: "写点东西", icon: PenLine, prompt: "帮我写一份内容。先和我确认主题、用途和读者，再一起完成初稿。" },
+            { label: "写点东西", icon: Pencil, prompt: "帮我写一份内容。先和我确认主题、用途和读者，再一起完成初稿。" },
             { label: "做个小工具", icon: LayoutGrid, prompt: "我想做一个日常使用的小工具。先和我确认需求，再做一个可以使用的版本。" },
           ].map((suggestion) => <button key={suggestion.label} onClick={() => chooseSuggestion(suggestion.prompt)}
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] text-text-dim hover:border-border-strong hover:bg-bg-hover">

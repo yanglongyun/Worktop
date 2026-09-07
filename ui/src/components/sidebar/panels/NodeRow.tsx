@@ -1,6 +1,6 @@
 import { type FileNode, filesApi } from "../../../api/files";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "../../ui/icons";
 import { fileIconFor, fileColorFor } from "../../files/icons";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 

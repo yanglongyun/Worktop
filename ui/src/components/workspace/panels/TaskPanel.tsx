@@ -3,7 +3,7 @@ import { type TaskInfo, appsApi } from "../../../api/apps";
 import { chatsApi } from "../../../api/chats";
 // 任务详情(标签页):应用触发的一次 agent 轮次,摊开看指令、回复、报错。
 import { useCallback, useEffect, useState } from "react";
-import { Activity } from "lucide-react";
+import { Activity } from "../../ui/icons";
 import { MessageStream } from "../../chat/MessageStream";
 import { renderRows, type Row } from "../../chat/thread";
 import type { TaskTab } from "../types";

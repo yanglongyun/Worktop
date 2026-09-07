@@ -2,7 +2,7 @@ import { widgetsApi } from "../../api/widgets";
 // 组件管理(标签页)。侧栏那 260px 只够列个名字;管理是「摊开来看」的事 ——
 // 每个组件一张卡:图标、名字、说明、权限、装在哪、钉/取下、删除。
 import { useEffect, useState } from "react";
-import { LayoutGrid, Sparkles, Trash2 } from "lucide-react";
+import { LayoutGrid, Sparkles, Trash } from "../ui/icons";
 import { dialog } from "../ui";
 import { dropFromOrder, requestCreateWidget } from "../../lib/widgetOrder";
 import type { WidgetDef } from "../sidebar/registry";
@@ -98,7 +98,7 @@ export function WidgetsManager() {
                       title="删除组件"
                       className="ml-auto w-6 h-6 rounded flex items-center justify-center text-text-faint opacity-0 group-hover:opacity-100 hover:text-danger hover:bg-bg-hover transition-all"
                     >
-                      <Trash2 size={13} />
+                      <Trash size={13} />
                     </button>
                   </div>
                 </div>

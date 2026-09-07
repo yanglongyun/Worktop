@@ -3,7 +3,7 @@
 // 活动栏原生 = 会话(AI)、文件(资产)、网站(浏览)、应用(跨宿主的 app 标准),焊死不可移;小组件/任务在 PanelHost 里处理。
 // 其余一切都是**组件**:组件的家在 <家>/widgets/<id>/,目录即安装。
 // 组件不占活动栏:全部收进「小组件」面板(格子),点一个进入。
-import { Files, Globe, LayoutGrid, MessageSquare } from "lucide-react";
+import { Files, Globe, LayoutGrid, MessageSquare } from "../ui/icons";
 
 /** 原生面板(宿主的一部分,不是组件)。 */
 export type NativePanel = { id: "agents" | "files" | "sites" | "apps"; title: string; icon: typeof MessageSquare };

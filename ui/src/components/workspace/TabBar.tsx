@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fileIconFor, fileColorFor } from "../files/icons";
-import { Bot, X, Activity, FileText, AppWindow, LayoutGrid, Circle, Columns2, GitBranch, GitCompare, Globe, PanelLeft, PanelRight, Plus, Settings, Terminal } from "lucide-react";
+import { Bot, X, Activity, FileText, AppWindow, LayoutGrid, Circle, Columns, GitBranch, GitCompare, Globe, PanelLeft, PanelRight, Plus, Settings, Terminal } from "../ui/icons";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import type { TabActions, WorkspaceGroupId, WorkspaceTab } from "./types";
@@ -324,7 +324,7 @@ export function TabBar({
           title={sideToggleOpen ? "收起右侧区域" : "开启右侧区域"}
         >
           {/* 分割线居中 = 左右平分,这是分屏;偏一侧的那种(PanelLeft/Right)留给侧边栏开合 */}
-          <Columns2 size={14} />
+          <Columns size={14} />
         </button>
       )}
       {dropGuide && (

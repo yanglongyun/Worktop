@@ -1,5 +1,5 @@
 import type { FileNode } from "../../api/files";
-import { Folder, FileText, FileCode, FileJson, Image, Hash, FileType } from "lucide-react";
+import { Folder, FileText, FileCode, FileJson, Image, Hash, FileType } from "../ui/icons";
 
 // 按扩展名挑文件图标(VSCode 风)
 const iconByExtension = (title: string) => {

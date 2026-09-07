@@ -1,7 +1,7 @@
 import { type GitFileStatus, gitApi } from "../../../api/git";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Copy, GitCompare, Minus, Plus, RefreshCw, RotateCcw } from "lucide-react";
+import { Copy, GitCompare, Minus, Plus, RefreshCw, RotateCcw } from "../../ui/icons";
 import { DiffView } from "../../files/DiffView";
 import { dialog } from "../../ui";
 import type { GitDiffTab } from "../types";

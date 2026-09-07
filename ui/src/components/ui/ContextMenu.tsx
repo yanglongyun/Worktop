@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check } from "./icons";
 
 export type MenuItem = {
   label: string;

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { FolderPlus, FolderOpen, X } from "lucide-react";
+import { FolderPlus, FolderOpen, X } from "../../ui/icons";
 
 // 添加文件夹对话框:输入/选择一个磁盘目录作为新的工作区 root。
 export function AddRootDialog({

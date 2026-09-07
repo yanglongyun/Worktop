@@ -5,7 +5,7 @@ import { systemApi } from "../../../api/system";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NodeRow, InlineCreateRow, type TreeControls } from "./NodeRow";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Folder, FolderPlus, FolderOpen, FileText, Trash2, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste } from "lucide-react";
+import { Folder, FolderPlus, FolderOpen, FileText, Trash, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste } from "../../ui/icons";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
@@ -493,7 +493,7 @@ export function FilesPanel({
                 try { await navigator.clipboard.writeText(text); } catch { /* 剪贴板不可用就算了 */ }
               } },
             "divider",
-            { label: `删除选中的 ${count} 项`, icon: <Trash2 size={13} />, danger: true,
+            { label: `删除选中的 ${count} 项`, icon: <Trash size={13} />, danger: true,
               onClick: () => { void deleteIds([...multiSel]); } },
           ],
         });
@@ -575,7 +575,7 @@ export function FilesPanel({
       );
     }
     items.push(
-      { label: node.isRoot ? "移除文件夹" : "删除", icon: <Trash2 size={13} />, danger: true,
+      { label: node.isRoot ? "移除文件夹" : "删除", icon: <Trash size={13} />, danger: true,
         onClick: async () => {
           if (node.isRoot) {
             if (!(await dialog.confirm(`移除文件夹「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;

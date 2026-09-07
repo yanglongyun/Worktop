@@ -6,7 +6,7 @@
 //   · 用户消息右侧灰底气泡;agent 来信 / 子 agent 回信保留居中卡片;
 //     助理最终文本无气泡全宽 markdown,悬停出现复制钮,最后一条常显。
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, FileText, PhoneCall, Sparkles } from "lucide-react";
+import { Check, Copy, FileText, PhoneCall, Sparkles } from "../ui/icons";
 import { renderMarkdown } from "../../lib/markdown";
 import { TurnEntries, TurnFold, Working, type TurnEntry } from "./Process";
 import { type Row } from "./thread";
@@ -232,11 +232,13 @@ function ChatRow({ row, always }: { row: Row; always: boolean }) {
       );
     }
     if (row.source === "compaction") {
+      // 消息原文保留给模型的上下文前缀；阅读视图只展示摘要正文。
+      const summary = (row.content || "").replace(/^以下是历史上下文压缩摘要:\s*/, "").trim();
       return (
         <div className="flex justify-center pb-3">
           <details className="w-full max-w-2xl rounded-md border border-border bg-surface overflow-hidden">
             <summary className="cursor-pointer px-3 py-2 text-[12px] font-medium text-text-dim hover:bg-bg-hover">上下文压缩摘要</summary>
-            <pre className="border-t border-border bg-bg-panel px-3 py-2 text-[12px] leading-relaxed text-text-dim whitespace-pre-wrap break-words max-h-72 overflow-auto">{row.content}</pre>
+            <pre className="border-t border-border bg-bg-panel px-3 py-2 text-[12px] leading-relaxed text-text-dim whitespace-pre-wrap break-words max-h-72 overflow-auto">{summary}</pre>
           </details>
         </div>
       );

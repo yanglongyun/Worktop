@@ -5,7 +5,7 @@ import { type Rule, settingsApi } from "../../api/settings";
 // 没有硬闸、没有编译,界面上也不说「拦截」。盾牌只是这个开关的图标:
 // 关着是灰的,开着是亮的,不点开也知道现在规则生不生效。
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, GripVertical, Loader2, Plus, Shield, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, GripVertical, Loader, Plus, Shield, ShieldCheck, Trash } from "../ui/icons";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { Switch } from "../ui";
 
@@ -189,7 +189,7 @@ export function RulesControl({ on, onChange, quiet = false }: { on: boolean; onC
                   disabled={!draft.trim() || busy}
                   className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center bg-accent text-white hover:opacity-90 disabled:opacity-30 transition-opacity"
                 >
-                  {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} />}
+                  {busy ? <Loader size={13} className="animate-spin" /> : <Plus size={14} />}
                 </button>
               </div>
               {error && (
@@ -252,10 +252,10 @@ function RuleDetail({ rule, onBack, onSaved, onDeleted }: { rule: Rule | null; o
       </div>
       <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-t border-border">
         <button onClick={save} disabled={!text.trim() || busy} className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-accent text-white text-[12.5px] hover:opacity-90 disabled:opacity-30 transition-opacity">
-          {busy && <Loader2 size={12} className="animate-spin" />}保存
+          {busy && <Loader size={12} className="animate-spin" />}保存
         </button>
         <button onClick={remove} disabled={busy} title="删除这条规则" className="ml-auto inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12.5px] text-danger hover:bg-danger/10 disabled:opacity-40 transition-colors">
-          <Trash2 size={12} /> 删除
+          <Trash size={12} /> 删除
         </button>
       </div>
     </div>

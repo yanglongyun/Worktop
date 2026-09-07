@@ -1,6 +1,6 @@
 import { type Settings, settingsApi } from "../../api/settings";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Loader2, X } from "lucide-react";
+import { ArrowRight, Loader, X } from "../ui/icons";
 import { ModelConnectionFields } from "../settings/ModelConnectionFields";
 
 export function ModelSetupDialog({ onClose, onSaved }: {
@@ -58,7 +58,7 @@ export function ModelSetupDialog({ onClose, onSaved }: {
         {error && <p role="alert" className="mt-4 break-words text-[12px] text-danger">{error}</p>}
         <button type="submit" disabled={!form?.apiUrl.trim() || !form?.model.trim() || saving}
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-40">
-          {saving ? <><Loader2 size={15} className="animate-spin" />正在保存…</> : <>保存并返回对话<ArrowRight size={15} /></>}
+          {saving ? <><Loader size={15} className="animate-spin" />正在保存…</> : <>保存并返回对话<ArrowRight size={15} /></>}
         </button>
       </form>
     </dialog>

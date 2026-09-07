@@ -4,7 +4,7 @@
 // (session 级,不属于某个标签页),挂进 WebPanel 的话分屏时会同时冒出两份。
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, KeyRound, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Key, ShieldAlert } from "./icons";
 
 type Permission = { id: string; origin: string; permission: string };
 type Auth = { id: string; host: string; realm: string; isProxy: boolean };
@@ -66,7 +66,7 @@ export function BrowsingPrompts() {
 
       {!permission && auth && (
         <Card
-          icon={<KeyRound size={18} className="text-accent" />}
+          icon={<Key size={18} className="text-accent" />}
           title={`${auth.isProxy ? "代理" : auth.host} 要求登录`}
           body={auth.realm ? `身份区域:${auth.realm}` : "这个站点使用 HTTP 认证"}
           note="凭证只用于这一次连接,不会保存。"

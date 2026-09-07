@@ -181,7 +181,17 @@ test("主界面、应用和小组件使用各自的路由", async (t) => {
     assert.equal((await call("/api/browser/history?q=Example")).history.length, 1);
     await call("/api/browser/history?all=1", "DELETE");
     const settings = await call("/api/settings");
-    assert.ok(settings.promptDefaults.system);
+    assert.ok(settings.settings.system);
+    assert.ok(settings.settings.compactPrompt);
+    assert.equal("promptDefaults" in settings, false);
+    for (const value of ["用户修改的提示词", "", "  \n", settings.settings.system]) {
+      await call("/api/settings", "POST", { system: value, compactPrompt: value });
+      const saved = (await call("/api/settings")).settings;
+      for (const key of ["system", "compactPrompt"]) {
+        assert.equal(saved[key], value);
+        assert.equal((getDb().prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string }).value, value);
+      }
+    }
     await call("/api/settings", "POST", { compressThreshold: "64000" });
     assert.equal((await call("/api/settings")).settings.compressThreshold, "64000");
     // Missing password paths validate dispatch without reading or creating a keychain secret.

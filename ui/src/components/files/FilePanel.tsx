@@ -2,7 +2,7 @@ import { type FileNode, filesApi } from "../../api/files";
 import { useEffect, useRef, useState } from "react";
 import { CodeEditor } from "./CodeEditor";
 import { renderMarkdown } from "../../lib/markdown";
-import { Eye, Code2, FileQuestion } from "lucide-react";
+import { Eye, Code, FileQuestion } from "../ui/icons";
 
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "bmp", "avif"]);
 
@@ -120,7 +120,7 @@ export function FilePanel({
           </button>
           <button onClick={() => setMdMode("edit")} title="源码"
             className={`px-2 py-1 ${mdMode === "edit" ? "bg-accent text-white" : "text-text-dim hover:bg-bg-hover"}`}>
-            <Code2 size={13} />
+            <Code size={13} />
           </button>
         </div>
         {mdMode === "preview" ? (

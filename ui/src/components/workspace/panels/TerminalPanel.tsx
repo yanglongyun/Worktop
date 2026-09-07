@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { RefreshCw, Terminal, X } from "lucide-react";
+import { RefreshCw, Terminal, X } from "../../ui/icons";
 import type { TerminalTab } from "../types";
 
 type Socket = {

@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus } from "../../ui/icons";
 
 export function PanelCreateAction({ label, onClick }: { label: string; onClick: () => void }) {
   return (

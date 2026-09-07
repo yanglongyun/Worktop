@@ -5,7 +5,7 @@
 // 而放不下的结果就是替用户默认(从前是自动挑最近用过的那个配置,多 Profile 的人没得选)。
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, ChevronDown, Cookie, Loader2, Star, X, KeyRound } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Cookie, Loader, Star, X, Key } from "./icons";
 import { Switch } from "./Switch";
 import {
   importFromChrome, listChromeProfiles,
@@ -127,7 +127,7 @@ export function ChromeImportDialog({ onClose, onDone }: {
             hint="加入「网站」面板,已有的不重复添加"
             on={bookmarks} onChange={setBookmarks} disabled={busy} />
           <div className="h-px bg-border mx-3.5" />
-          <Row icon={<KeyRound size={17} className="text-text-dim" />} label="密码"
+          <Row icon={<Key size={17} className="text-text-dim" />} label="密码"
             hint="加入「网站」面板的密码页,加密保存在本机"
             on={passwords} onChange={setPasswords} disabled={busy} />
         </div>
@@ -148,7 +148,7 @@ export function ChromeImportDialog({ onClose, onDone }: {
           <button onClick={run} disabled={busy || nothingPicked}
             className="h-10 px-6 rounded-xl bg-text text-bg text-[14px] font-medium inline-flex items-center gap-2
               hover:opacity-90 disabled:opacity-40 transition-opacity">
-            {busy && <Loader2 size={14} className="animate-spin" />}
+            {busy && <Loader size={14} className="animate-spin" />}
             {busy ? "导入中…" : "导入"}
           </button>
         </div>

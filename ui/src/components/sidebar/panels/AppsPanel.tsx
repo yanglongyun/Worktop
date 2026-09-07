@@ -6,7 +6,7 @@ import { type AppInfo, appsApi } from "../../../api/apps";
 // 状态看不见的话用户根本不知道该不该等。
 import { useCallback, useEffect, useState } from "react";
 import { ContextMenu, type MenuItem } from "../../ui";
-import { AlertTriangle, Pin, PinOff, Plus, RotateCw, Square } from "lucide-react";
+import { AlertTriangle, Pin, PinOff, Plus, RotateCw, Square } from "../../ui/icons";
 import { isPinned, togglePin } from "../../../lib/railPins";
 import { PanelCreateAction } from "./PanelCreateAction";
 

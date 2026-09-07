@@ -5,7 +5,7 @@ import { type ApprovalCard as Card, chatsApi } from "../../api/chats";
 // 出口只有两个:不允许 / 允许。没有「以后都允许」。
 // 它是助手的判断,不是保证:界面不许让人以为「危险操作它一定会问」。
 import { useState } from "react";
-import { AlertTriangle, Check, MessageCircleQuestion, X } from "lucide-react";
+import { AlertTriangle, Check, MessageCircleQuestion, X } from "../ui/icons";
 
 export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string) => void }) {
   const [busy, setBusy] = useState(false);

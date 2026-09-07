@@ -1,7 +1,7 @@
 import { type GitBranches, type GitCommitFile, type GitCommitInfo, type GitFileStatus, type GitRepositoryStatus, gitApi } from "../../../api/git";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Check, ChevronRight, Copy, GitBranch, GitCommitHorizontal, GitCompare, GitPullRequest, History, Minus, Plus, RefreshCw, RotateCcw, UploadCloud } from "lucide-react";
+import { Check, ChevronRight, Copy, GitBranch, GitCommit, GitCompare, GitPullRequest, History, Minus, Plus, RefreshCw, RotateCcw, UploadCloud } from "../../ui/icons";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
 
 const statusText: Record<GitFileStatus["status"], string> = {
@@ -374,7 +374,7 @@ function RepositoryBlock({
                 disabled={disabled || !commitMessage.trim() || staged.length === 0 || hasConflict}
                 className="h-7 flex items-center justify-center gap-1.5 px-3 text-[12.5px] bg-accent text-white hover:opacity-90 disabled:opacity-40"
               >
-                <GitCommitHorizontal size={13} /> 提交
+                <GitCommit size={13} /> 提交
               </button>
             </div>
           </div>
@@ -453,7 +453,7 @@ function RepositoryBlock({
 ${c.author} · ${c.date} · ${c.short}`}
                   className="w-full flex items-center gap-2 px-3 py-[3px] text-left hover:bg-bg-hover"
                 >
-                  <GitCommitHorizontal size={12} className="shrink-0 text-text-faint" />
+                  <GitCommit size={12} className="shrink-0 text-text-faint" />
                   <span className="flex-1 min-w-0 truncate text-[12.5px] text-text">{c.subject}</span>
                   <span className="shrink-0 text-[10.5px] text-text-faint font-mono">{c.short}</span>
                 </button>
