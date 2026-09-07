@@ -50,8 +50,8 @@ export function ChatRail({
     sync();
     const timer = setInterval(sync, 10_000);
     const offs = [
-      socket.on(EVENTS.START, (p: any) => setRunning((s) => new Set(s).add(String(p.chatId)))),
-      ...[EVENTS.DONE, EVENTS.ABORTED, EVENTS.ERROR].map((t) =>
+      socket.on(EVENTS.RUN_START, (p: any) => setRunning((s) => new Set(s).add(String(p.chatId)))),
+      ...[EVENTS.RUN_DONE, EVENTS.RUN_ABORTED, EVENTS.RUN_ERROR].map((t) =>
         socket.on(t, (p: any) => setRunning((s) => { const n = new Set(s); n.delete(String(p.chatId)); return n; })),
       ),
     ];

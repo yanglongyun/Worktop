@@ -87,9 +87,9 @@ export const createLedger = (chatId, rows) => {
     live.push({ id: row.id, item: data.item, summary: false });
     generated.push(data.item);
     if (type === "function_call") {
-      emit({ type: EVENTS.CALLS, chatId, calls: [{ callId: data.item.call_id, name: data.item.name, args: parseArgs(data.item.arguments) }] });
+      emit({ type: EVENTS.TOOL_CALLS, chatId, calls: [{ callId: data.item.call_id, name: data.item.name, args: parseArgs(data.item.arguments) }] });
     } else if (type === "function_call_output") {
-      emit({ type: EVENTS.CALL_OUTPUT, chatId, callId: data.item.call_id, result: data.item.output || "" });
+      emit({ type: EVENTS.TOOL_OUTPUT, chatId, callId: data.item.call_id, result: data.item.output || "" });
     }
   };
   return { live, generated, record };
@@ -132,7 +132,7 @@ const settleDanglingCalls = (chatId, items, reason) => {
   for (const call of pending.values()) {
     const output = { type: "function_call_output", call_id: call.call_id, output: `error: ${reason}` };
     appendItem(chatId, output);
-    emit({ type: EVENTS.CALL_OUTPUT, chatId, callId: call.call_id, result: output.output });
+    emit({ type: EVENTS.TOOL_OUTPUT, chatId, callId: call.call_id, result: output.output });
   }
 };
 
@@ -151,7 +151,7 @@ const runChat = async (chatId) => {
   running.set(String(chatId), controller);
   const signal = controller.signal;
 
-  emit({ type: EVENTS.START, chatId });
+  emit({ type: EVENTS.RUN_START, chatId });
 
   // 历史从最近一次压缩的锚点之后取;摘要行在锚点之后,自然在其中
   const latest = getLatestCompaction(chatId);
@@ -175,12 +175,12 @@ const runChat = async (chatId) => {
     };
 
     const emitKernel = (type, data) => {
-      if (type === "message" && data.delta) { emit({ type: EVENTS.DELTA, chatId, content: data.delta }); return; }
-      if (type === "reasoning" && data.delta) { emit({ type: EVENTS.REASONING, chatId, content: data.delta }); return; }
-      if (type === "function_call" && data.phase === "started") { emit({ type: EVENTS.CALL_STARTED, chatId }); return; }
+      if (type === "message" && data.delta) { emit({ type: EVENTS.MESSAGE_DELTA, chatId, content: data.delta }); return; }
+      if (type === "reasoning" && data.delta) { emit({ type: EVENTS.REASONING_DELTA, chatId, content: data.delta }); return; }
+      if (type === "function_call" && data.phase === "started") { emit({ type: EVENTS.TOOL_CALL_START, chatId }); return; }
       if (type === "retry") {
         // 网络抖动/限流,循环在退避重试 —— 透给界面,别让用户以为卡死了
-        emit({ type: EVENTS.RETRY, chatId, attempt: data.attempt, maxRetries: data.maxRetries, delayMs: data.delayMs, message: String(data.error || "") });
+        emit({ type: EVENTS.RUN_RETRY, chatId, attempt: data.attempt, maxRetries: data.maxRetries, delayMs: data.delayMs, message: String(data.error || "") });
         return;
       }
       ledger.record(type, data); // item 落库 / 压缩记账;循环自己的 done/error 不落,终局由本层广播
@@ -219,7 +219,7 @@ const runChat = async (chatId) => {
       const row = appendItem(chatId, marker, { meta: { kind: "marker" } });
       emit({ type: EVENTS.INPUT, chatId, row });
     }
-    emit({ type: EVENTS.DONE, chatId, usage: result.usage || null });
+    emit({ type: EVENTS.RUN_DONE, chatId, usage: result.usage || null });
     if (wasUntitled) void autoTitle(chatId, rows, finalText, settings); // 取名独立走,不挡终局
     return finalText;
   } catch (error) {
@@ -232,8 +232,8 @@ const runChat = async (chatId) => {
       : { role: "system", content: `[error] 上一轮运行失败:${message}` };
     const row = appendItem(chatId, marker, { meta: { kind: "marker" } });
     emit({ type: EVENTS.INPUT, chatId, row });
-    if (aborted) emit({ type: EVENTS.ABORTED, chatId });
-    else emit({ type: EVENTS.ERROR, chatId, message });
+    if (aborted) emit({ type: EVENTS.RUN_ABORTED, chatId });
+    else emit({ type: EVENTS.RUN_ERROR, chatId, message });
     throw error;
   } finally {
     running.delete(String(chatId));

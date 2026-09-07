@@ -64,7 +64,7 @@ export function setupStream(ports: StreamPorts) {
     if (String(payload.chatId || "") !== chatId) return;
 
     switch (payload.type) {
-      case EVENTS.START:
+      case EVENTS.RUN_START:
         setBusy(true);
         closeStreaming();
         break;
@@ -81,32 +81,32 @@ export function setupStream(ports: StreamPorts) {
         break;
       }
 
-      case EVENTS.REASONING: {
+      case EVENTS.REASONING_DELTA: {
         const row = streamingRow();
         row.reasoning = (row.reasoning || "") + String(payload.content || "");
         break;
       }
-      case EVENTS.DELTA: {
+      case EVENTS.MESSAGE_DELTA: {
         const row = streamingRow();
         row.content = (row.content || "") + String(payload.content || "");
         break;
       }
 
-      case EVENTS.CALL_STARTED:
+      case EVENTS.TOOL_CALL_START:
         // 模型转去吐工具参数了:正文行到此为止,不收会把等待动画压住
         closeStreaming();
         break;
 
-      case EVENTS.CALLS: {
+      case EVENTS.TOOL_CALLS: {
         closeStreaming();
         for (const call of payload.calls || []) pushRow({ ...toolRow(call, "running"), at: Date.now() });
         break;
       }
-      case EVENTS.CALL_OUTPUT:
+      case EVENTS.TOOL_OUTPUT:
         completeCall(String(payload.callId || ""), typeof payload.result === "string" ? payload.result : JSON.stringify(payload.result));
         break;
 
-      case EVENTS.RETRY:
+      case EVENTS.RUN_RETRY:
         // 网络抖动,内核在退避重试 —— 落一枚瞬态 chip(不入库,终局对账后自然消失)
         closeStreaming();
         pushRow({
@@ -132,21 +132,21 @@ export function setupStream(ports: StreamPorts) {
         break;
       }
 
-      case EVENTS.DONE:
+      case EVENTS.RUN_DONE:
         closeStreaming();
         settleCalls();
         setBusy(false);
         refresh(); // 对账:补齐服务端事实
         break;
 
-      case EVENTS.ABORTED:
+      case EVENTS.RUN_ABORTED:
         closeStreaming();
         settleCalls();
         setBusy(false);
         // [stopped] 留痕由服务端落库并走 INPUT 事件进画面,这里不重复推
         break;
 
-      case EVENTS.ERROR:
+      case EVENTS.RUN_ERROR:
         closeStreaming();
         settleCalls();
         setBusy(false);

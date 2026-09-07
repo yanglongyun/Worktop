@@ -77,7 +77,7 @@ const handleConnection = (ws) => {
       runChat(chatId).catch((error) => {
         if (error?.name === "AbortError") return;
         if (/already running/i.test(error?.message || "")) return; // 邮箱已收到消息,跑完这轮自然会带上
-        emit({ type: EVENTS.ERROR, chatId, message: String(error?.message || error) });
+        emit({ type: EVENTS.RUN_ERROR, chatId, message: String(error?.message || error) });
       });
       return;
     }

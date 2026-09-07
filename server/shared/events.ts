@@ -1,29 +1,29 @@
-// 对话事件契约 —— 服务端广播、界面认领,跨进程的字符串只写这一份。
-// 全部带 chatId;界面按 chatId 认领,不是自己那条线的直接忽略。
-// (树/进程/终端等既有事件名不在此列,维持原样:tree_changed / chats_changed /
-//  process_changed / terminal_* / connected。)
+// 对话事件契约：服务端与界面共用。所有事件携带 chatId。
 export const EVENTS = Object.freeze({
-  /** 一轮开始跑了。 */
-  START: "conversation.start",
-  /** 思考流增量:{ content }。 */
-  REASONING: "conversation.reasoning",
-  /** 正文流增量:{ content }。 */
-  DELTA: "conversation.delta",
-  /** 模型转去吐工具参数了,正文行到此为止。 */
-  CALL_STARTED: "conversation.callStarted",
-  /** 一批工具调用已就绪:{ calls: [{ callId, name, args }] }。 */
-  CALLS: "conversation.calls",
-  /** 某次工具调用出结果:{ callId, result }。 */
-  CALL_OUTPUT: "conversation.callOutput",
-  /** 上下文压缩:开始 / 结束。 */
-  COMPACT_START: "conversation.compactStart",
-  COMPACT_DONE: "conversation.compactDone",
-  /** 模型请求在退避重试:{ attempt, maxRetries, delayMs, message }。 */
-  RETRY: "conversation.retry",
-  /** 新消息进邮箱(用户消息 / 压缩摘要):{ row }。 */
+  /** 已落库的上下文输入记录：用户消息、压缩摘要、系统留痕等。{ row } */
   INPUT: "conversation.input",
-  /** 终局三态。ERROR 带 { message }。 */
-  DONE: "conversation.done",
-  ABORTED: "conversation.aborted",
-  ERROR: "conversation.error",
+
+  /** 思考与正文的流式增量。{ content } */
+  REASONING_DELTA: "conversation.reasoning.delta",
+  MESSAGE_DELTA: "conversation.message.delta",
+
+  /** 模型开始生成工具调用参数，尚未执行工具。 */
+  TOOL_CALL_START: "conversation.tool.call.start",
+  /** 工具调用参数已就绪。{ calls: [{ callId, name, args }] } */
+  TOOL_CALLS: "conversation.tool.calls",
+  /** 单次工具调用返回结果。{ callId, result } */
+  TOOL_OUTPUT: "conversation.tool.output",
+
+  /** 压缩状态；摘要记录通过 INPUT 发送。 */
+  COMPACT_START: "conversation.compact.start",
+  COMPACT_DONE: "conversation.compact.done",
+
+  /** 一轮运行开始。 */
+  RUN_START: "conversation.run.start",
+  /** 模型请求退避重试。{ attempt, maxRetries, delayMs, message } */
+  RUN_RETRY: "conversation.run.retry",
+  /** 本轮停止、完成或失败；系统留痕通过 INPUT 发送。 */
+  RUN_ABORTED: "conversation.run.aborted",
+  RUN_DONE: "conversation.run.done", // { usage }
+  RUN_ERROR: "conversation.run.error", // { message }
 });

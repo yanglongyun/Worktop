@@ -92,7 +92,7 @@ export function App() {
       treeBumpTimer.current = setTimeout(() => { treeBumpTimer.current = null; setTreeRefresh((n) => n + 1); }, 300);
     };
     // 新消息进邮箱 / 轮次终局 / 会话列表变了 → 未读点、状态点要跟上(流式增量不刷,太密)
-    const triggers = ["tree_changed", "chats_changed", EVENTS.INPUT, EVENTS.DONE, EVENTS.ABORTED, EVENTS.ERROR];
+    const triggers = ["tree_changed", "chats_changed", EVENTS.INPUT, EVENTS.RUN_DONE, EVENTS.RUN_ABORTED, EVENTS.RUN_ERROR];
     const offs = triggers.map((t) => socket.on(t, bump));
     return () => { offs.forEach((f) => f()); };
   }, [socket]);
@@ -125,10 +125,10 @@ export function App() {
       }),
       socket.on("app_notify", (p: any) => { if (p?.text) showToast(`${p.appName || p.appId || "应用"}:${p.text}`); }),
       socket.on("chats_changed", syncTitles),
-      socket.on(EVENTS.START, (p: any) => set(p.chatId, { status: "running" })),
-      socket.on(EVENTS.DONE, (p: any) => set(p.chatId, { status: "idle" })),
-      socket.on(EVENTS.ABORTED, (p: any) => set(p.chatId, { status: "idle" })),
-      socket.on(EVENTS.ERROR, (p: any) => set(p.chatId, { status: "error" })),
+      socket.on(EVENTS.RUN_START, (p: any) => set(p.chatId, { status: "running" })),
+      socket.on(EVENTS.RUN_DONE, (p: any) => set(p.chatId, { status: "idle" })),
+      socket.on(EVENTS.RUN_ABORTED, (p: any) => set(p.chatId, { status: "idle" })),
+      socket.on(EVENTS.RUN_ERROR, (p: any) => set(p.chatId, { status: "error" })),
       socket.on(EVENTS.INPUT, (p: any) => {
         const active = activeTabRef.current; // 用 ref 读:activeTab 进依赖会让本 effect 每次 setState 后重跑
         if (active && isContentTab(active) && active.id === p.chatId) return; // 正看着呢,不算未读

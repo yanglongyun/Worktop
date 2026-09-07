@@ -241,7 +241,7 @@ export function PanelHost({
     };
     load();
     // refreshKey 不含 START(App 只在终局事件上节流刷新),运行点要即时亮,这里自己订阅
-    const offs = [EVENTS.START, EVENTS.DONE, EVENTS.ABORTED, EVENTS.ERROR, EVENTS.INPUT, "chats_changed"]
+    const offs = [EVENTS.RUN_START, EVENTS.RUN_DONE, EVENTS.RUN_ABORTED, EVENTS.RUN_ERROR, EVENTS.INPUT, "chats_changed"]
       .map((t) => socket.on(t, load));
     return () => { gone = true; offs.forEach((off) => off()); };
   }, [socket, refreshKey]);
