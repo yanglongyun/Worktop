@@ -46,6 +46,9 @@ export const DEFAULT_SETTINGS = {
   model: "",
   compressThreshold: "64000",
   toolResultMaxChars: "30000",
+  // 工具循环:limit on = 每轮对话最多 maxToolRounds 轮工具调用;off = 不限。
+  toolRoundsLimit: "on",
+  maxToolRounds: "64",
   // 匿名使用统计:on/off。只收 事件名/版本/平台/匿名安装 id(见 server/telemetry.ts)。
   telemetry: "on",
   // 规则开关:on = 规则写进提示词、confirm 工具在;off = 都不在。

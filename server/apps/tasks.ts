@@ -13,7 +13,7 @@
 //   2. 结果以 SSE 流回给发起的应用:tool(进度)/ error / done。应用只认 error 和 done。
 import { runAgent as runAi } from "../agent/index.js";
 import { createRunner, tools } from "../agent/tools.js";
-import { getSettings } from "../settings/store.js";
+import { getSettings, toolRoundsOf } from "../settings/store.js";
 import { createTask, settleTask } from "./taskStore.js";
 import { createChat } from "../chats/store.js";
 import { appendItem } from "../chats/messages.js";
@@ -23,7 +23,6 @@ import { buildSystem } from "../chats/prompt.js";
 import { compactionOf, createLedger } from "../chats/turn.js";
 import { emit } from "../bus.js";
 
-const MAX_ROUNDS = 64;
 const ERROR_MAX_CHARS = 4000;
 
 /**
@@ -95,7 +94,7 @@ export const runAppTask = async (
       input: [userRow.item],
       tools: tools.filter((t) => t.name !== "confirm"), // 没人守着,不能问
       run: createRunner(ctx),
-      maxRounds: MAX_ROUNDS,
+      maxRounds: toolRoundsOf(settings),
       errorMaxChars: ERROR_MAX_CHARS,
       compaction: compactionOf(settings),
       signal: controller.signal,

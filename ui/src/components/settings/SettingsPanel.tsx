@@ -11,7 +11,7 @@ import { SkillsSettings } from "./SkillsSettings";
 
 const emptySettings: Settings = {
   apiUrl: "", apiKey: "", model: "", system: "", compressThreshold: "64000",
-  compactPrompt: "", toolResultMaxChars: "30000", telemetry: "on",
+  compactPrompt: "", toolResultMaxChars: "30000", toolRoundsLimit: "on", maxToolRounds: "64", telemetry: "on",
 };
 const categories = [
   { id: "model", label: "模型", icon: Bot, description: "连接模型，设置助手的回应方式。" },
@@ -74,7 +74,7 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
   };
   const selected = categories.find((item) => item.id === category)!;
   const connectionDirty = dirty(["apiUrl", "apiKey", "model"]);
-  const advancedDirty = dirty(["compressThreshold", "toolResultMaxChars", "compactPrompt"]);
+  const advancedDirty = dirty(["compressThreshold", "toolResultMaxChars", "toolRoundsLimit", "maxToolRounds", "compactPrompt"]);
 
   return <div className="@container flex min-h-0 flex-1 flex-col bg-bg">
     <div className="flex min-h-0 flex-1 flex-col">
@@ -141,13 +141,23 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
             </div>
             <div hidden={category !== "advanced"}>
               <Section title="上下文管理" description="通常保持默认值即可。">
-                <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void save("advanced", { compressThreshold: form.compressThreshold, toolResultMaxChars: form.toolResultMaxChars, compactPrompt: form.compactPrompt }); }}>
+                <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void save("advanced", { compressThreshold: form.compressThreshold, toolResultMaxChars: form.toolResultMaxChars, toolRoundsLimit: form.toolRoundsLimit, maxToolRounds: form.maxToolRounds, compactPrompt: form.compactPrompt }); }}>
                   <fieldset disabled={states.advanced?.busy} className="min-w-0 space-y-5">
                     <Field label="压缩阈值" description="对话达到此 token 数量时压缩历史内容。默认 64000，设为 0 关闭自动压缩。">
                       <input name="compressThreshold" className={inputClass} type="number" min={0} step={1} required value={form.compressThreshold} onChange={(e) => edit("compressThreshold", e.target.value, "advanced")} />
                     </Field>
                     <Field label="工具结果上限" description="单次工具结果保留的最多字符数。默认 30000，可设置为 1000–50000。">
                       <input name="toolResultMaxChars" className={inputClass} type="number" min={1000} max={50000} step={1} required value={form.toolResultMaxChars} onChange={(e) => edit("toolResultMaxChars", e.target.value, "advanced")} />
+                    </Field>
+                    <Field label="工具循环" description="一轮对话里工具调用的最多轮数，防止失控。关掉限制就一直跑到模型自己停下。">
+                      <div className="flex items-center gap-2">
+                        <select className={`${inputClass} cursor-pointer`} name="toolRoundsLimit" value={form.toolRoundsLimit} onChange={(e) => edit("toolRoundsLimit", e.target.value, "advanced")}>
+                          <option value="on">最多</option>
+                          <option value="off">不限制</option>
+                        </select>
+                        <input name="maxToolRounds" className={inputClass} type="number" disabled={form.toolRoundsLimit === "off"} min={1} max={1000} step={1} required value={form.maxToolRounds} onChange={(e) => edit("maxToolRounds", e.target.value, "advanced")} />
+                        <span className="shrink-0 text-[12.5px] text-text-faint">轮</span>
+                      </div>
                     </Field>
                     <div className="border-t border-border pt-4">
                       <h3 className="text-[13px] font-medium text-text">压缩提示词</h3>

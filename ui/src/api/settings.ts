@@ -8,6 +8,9 @@ export type Settings = {
   compressThreshold?: string;
   compactPrompt?: string;
   toolResultMaxChars?: string;
+  /** 工具循环:limit on/off;on 时每轮最多 maxToolRounds 轮。 */
+  toolRoundsLimit?: string;
+  maxToolRounds?: string;
   /** 匿名使用统计:on/off(只收 事件名/版本/平台/匿名安装 id)。 */
   telemetry?: string;
   /** 规则开关:on / off。 */

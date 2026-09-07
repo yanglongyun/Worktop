@@ -24,4 +24,11 @@ const saveSettings = (patch = {}) => {
   return getSettings();
 };
 
+/** 工具循环上限:开关关掉就是不限(给循环一个永远到不了的整数);开着按 maxToolRounds,非法值回落默认 64。 */
+export const toolRoundsOf = (settings: { toolRoundsLimit?: string; maxToolRounds?: string }) => {
+  if ((settings.toolRoundsLimit || "on") === "off") return Number.MAX_SAFE_INTEGER;
+  const n = Number(settings.maxToolRounds);
+  return Number.isInteger(n) && n > 0 ? n : 64;
+};
+
 export { getSettings, saveSettings };

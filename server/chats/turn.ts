@@ -17,11 +17,10 @@ import { buildSystem } from "./prompt.js";
 import { DEFAULT_TITLE, getChat, updateChat } from "./store.js";
 import { appendItem, latestUsage, listRows } from "./messages.js";
 import { createCompaction, getLatestCompaction } from "./compactions.js";
-import { getSettings } from "../settings/store.js";
+import { getSettings, toolRoundsOf } from "../settings/store.js";
 import { prepareInput } from "./input.js";
 import { emit } from "../bus.js";
 
-const MAX_ROUNDS = 64;
 const ERROR_MAX_CHARS = 4000;
 
 /** 压缩配置:水位就是 settings.compressThreshold(token),0 = 不压。 */
@@ -198,7 +197,7 @@ const runChat = async (chatId) => {
       input: rows.map((row) => row.item),
       tools: rulesOn ? tools : tools.filter((t) => t.name !== "confirm"),
       run: createRunner(ctx),
-      maxRounds: MAX_ROUNDS,
+      maxRounds: toolRoundsOf(settings),
       errorMaxChars: ERROR_MAX_CHARS,
       compaction: compactionOf(settings),
       usage: latestUsage(chatId),
