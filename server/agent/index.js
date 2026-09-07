@@ -4,7 +4,7 @@
 // 上下文压缩在循环里做 —— 工具循环是上下文增长的大头,只在一轮开头看一眼不够 ——
 // 压缩配置由调用方注入,压了就 emit 一个 compact 事件,记账是调用方的事。
 import { request } from '../ai/request.js';
-import { compact, shouldCompact } from './compact.js';
+import { compact } from './compact.js';
 
 export async function runAgent({
     runId,
@@ -41,12 +41,15 @@ export async function runAgent({
             if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
             // 每次请求前都看一眼水位 —— 拿的是最近一次应答的 usage
-            if (compaction && shouldCompact({ usage, compaction })) {
-                emit('compact', { phase: 'started' });
-                const folded = await compact({ history: context, usage, compaction, responsesUrl, apiKey, model, errorMaxChars, signal });
-                if (folded.compacted) context = folded.history;
-                // 原文由宿主自己留着;这里只报压掉了什么、尾段留了几条,宿主据此记账
-                emit('compact', { phase: 'done', compacted: folded.compacted, summary: folded.summary, kind: folded.kind, tokens: folded.tokens, tailCount: folded.tailCount, history: context });
+            if (compaction) {
+                const folded = await compact({ history: context, usage, compaction, responsesUrl, apiKey, model, errorMaxChars, signal,
+                    onStart: () => emit('compact', { phase: 'started' }),
+                });
+                if (folded.compacted) {
+                    context = folded.history;
+                    // 原文由宿主自己留着;只有实际完成压缩才通知宿主记账和更新界面。
+                    emit('compact', { phase: 'done', compacted: true, summary: folded.summary, kind: folded.kind, tokens: folded.tokens, tailCount: folded.tailCount, history: context });
+                }
             }
 
             const result = await request({

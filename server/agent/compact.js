@@ -44,8 +44,8 @@ const mechanical = (items, config) => [
     ...items.map((item, index) => `#${index + 1} ${item.role || item.type || 'unknown'} ${text(item, config).replace(/\s+/g, ' ').slice(0, config.mechanicalItemMaxChars)}`),
 ].join('\n');
 
-/** 用量是否已到压缩水位。单独导出给调用方预判(如 Web 端提前广播「正在压缩」)。 */
-export function shouldCompact({ usage, compaction }) {
+/** 用量是否已到压缩水位；满足水位后还需检查实际可压缩材料。 */
+function shouldCompact({ usage, compaction }) {
     if (!compaction || typeof compaction !== 'object') throw new Error('compaction 配置必填');
     const used = (Number(usage?.input_tokens) || 0) + (Number(usage?.output_tokens) || 0);
     return Boolean(compaction.contextWindowTokens) && used >= compaction.contextWindowTokens * compaction.foldRatio;
@@ -60,6 +60,7 @@ export async function compact({
     model,
     errorMaxChars,
     signal,
+    onStart = () => {},
 }) {
     if (!shouldCompact({ usage, compaction })) return { history, compacted: false };
 
@@ -69,7 +70,10 @@ export async function compact({
     const early = history.slice(0, at);
     // 材料太薄(比如只有首条用户消息,reasoning 被滤掉后一片空白)就不压:
     // 折叠不了多少上下文,却会往历史里塞一份「什么都没发生」的假事实
-    if (material(early, compaction).length < MATERIAL_MIN_CHARS) return { history, compacted: false };
+    const source = material(early, compaction);
+    if (source.length < MATERIAL_MIN_CHARS) return { history, compacted: false };
+    signal?.throwIfAborted();
+    onStart();
     let summary = '';
     let kind = 'summary';
     let tokens = 0;
@@ -79,13 +83,17 @@ export async function compact({
             apiKey,
             model,
             instructions: compaction.prompt,
-            input: [{ role: 'user', content: `压缩下面的对话：\n\n${material(early, compaction)}` }],
+            input: [{ role: 'user', content: `压缩下面的对话：\n\n${source}` }],
             errorMaxChars,
             signal,
         });
         tokens = (Number(result.usage?.input_tokens) || 0) + (Number(result.usage?.output_tokens) || 0);
         if (String(result.text).trim().length >= compaction.summaryMinChars) summary = String(result.text).trim();
-    } catch { /* 摘要失败时使用确定性索引 */ }
+    } catch (error) {
+        if (signal?.aborted || error?.name === 'AbortError') throw error;
+        // 摘要失败时使用确定性索引。
+    }
+    signal?.throwIfAborted();
     if (!summary) {
         summary = mechanical(early, compaction);
         kind = 'mechanical';
