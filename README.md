@@ -38,11 +38,15 @@
 | `chats` | 对话(标题 / 人格 / 已读位置) |
 | `messages` | 每个对话的消息流,一行一个 Responses item |
 | `compactions` | 上下文压缩的摘要与水位 |
+| `tasks` | 应用发起的 AI 任务与状态 |
 | `settings` | 模型 / key / 默认 system prompt |
-| `workspaces` | 文件浏览入口(手动添加的文件夹) |
-| `sites` | 「网站」面板的收藏 |
+| `settings_rules` | 全局规则与顺序 |
+| `file_roots` | 文件浏览入口(手动添加的文件夹) |
+| `browser_bookmarks` | 「网站」面板的收藏 |
+| `browser_history` | 浏览历史 |
+| `browser_passwords` | 网站账号与加密密码 |
 
-**运行状态不落库** —— 跑到一半的轮次重启后本就恢复不了,而发生过什么已经逐条记在 `messages` 里。
+用户对话的运行状态保存在内存，消息过程逐条记在 `messages` 中；应用任务的终局另存于 `tasks`。
 
 ## AI 手里的工具(5 个)
 
@@ -69,9 +73,24 @@
 ```
 
 每个组件跑在**自己的 origin** 上(一个 loopback 端口),宿主 API 是同源 HTTP
-(`fetch("/_wt/sql")`),不需要任何 SDK;默认被 CSP 断网,权限在 manifest 里明文声明。
+(`fetch("/widgets/sql")`),不需要任何 SDK;默认被 CSP 断网,权限在 manifest 里明文声明。
 
 完整契约是一条出厂技能:`~/.worktop/skills/widget/SKILL.md`(源在 `resources/skills/widget/`)。AI 造组件时自己读它,你也可以改它。
+
+## HTTP 接口分工
+
+| 前缀 | 调用方 | 服务位置 |
+|---|---|---|
+| `/api/*` | Worktop 主界面:对话、文件、设置、应用和组件管理 | 主服务端口 |
+| `/apps/*` | 应用调用宿主:身份、模型补全、Agent 任务、通知 | `HOST_URL`，使用 `APP_TOKEN` 与 manifest 权限 |
+| `/widgets/*` | 小组件调用宿主:身份、SQL、模型、网络代理、界面交互 | 组件自己的端口，同源调用，由宿主识别组件 |
+
+`/api/apps`、`/api/widgets` 是管理接口，分别区别于 `/apps/*`、`/widgets/*` 的宿主能力。
+组件目录中的 `/widgets/*` 路径由宿主保留。应用自己的业务 API 在应用自己的端口上，自行定义。
+主界面 API 按 `chats`、`files`、`browser`、`apps`、`widgets`、`skills`、`settings`、`system`、`git` 分组。常用目录在 `/api/files/roots`，全局规则在 `/api/settings/rules`。固定路由段用小写单词和 `/` 层级。
+
+主界面的双向通道是 `/api/ws`，健康检查是 `/health`。
+完整方法、路径与用途见 [HTTP 路由清单](docs/http-routes.md)。
 
 ## 用起来什么感觉
 
@@ -107,7 +126,7 @@ npm run dist:mac
 开发模式打开 **http://localhost:5174/**:
 
 1. 左下角 ⚙ Settings → 填 API URL / API Key / Model(任何 Responses 兼容接口)
-2. 「会话」面板 `＋` → 新建一个对话
+2. 「会话」面板 `＋` → 打开空白起始页，首次发送时才创建对话
 3. 发条消息试试 —— 让它「做个喝水打卡的组件」,看它写出目录,然后在侧栏「小组件」里点开
 
 ## 技术栈
@@ -117,21 +136,29 @@ Vite · CodeMirror 6 · @dnd-kit · ws · Electron
 
 ## 想读代码——架构
 
-按领域分目录,一个目录一句话说清;领域之间不互相 import。
+按领域分目录，HTTP 层调用业务模块；通用连接、路径和默认值各自有明确归属。
 
 ```
 server/
-├── index.ts      🚀 启动装配;db / home / settings / bus / telemetry 谁都要用,留在根上
-├── ai/           🧠 Responses API 客户端(纯 JS 零依赖):请求 / 读流 / 重试 / 单次补全
-├── agent/        🔁 循环(模型 → 工具 → 模型)、循环内压缩、tools.ts 定义表、functions/ 六个工具的实现
-├── http/         🌐 HTTP 的皮:api/(每个资源一个文件)/ ws(WebSocket)/ static / origin
-├── chat/         🎬 一轮怎么跑:turn(编排、逐条落库、压缩记账)/ system(提示词)/ approvals / rules / files
-├── workspace/    🌳 文件树:tree / watcher / search / git / directoryPicker
-├── apps/         📦 应用宿主:registry / supervisor / bridge(/host/*)/ tasks
-├── widgets/ sites/ skills/ browser/ terminals/   各管一样东西
-└── shared/       📜 事件名契约,服务端与界面共用一份
-desktop/          🖥 Electron 壳:esbuild 单文件 server 由壳拉起,窗口指向 127.0.0.1
-ui/src/components/   React 前端:sidebar(三原生 + 组件)/ workspace(标签页)/ chat / files / widgets
+├── index.ts      启动装配
+├── database/     connection.ts 连接；schema.ts 当前表与索引
+├── settings/     store.ts 设置；defaults.ts 默认值；rules.ts 规则；seed.ts 新库播种
+├── system/       paths.ts 运行路径；directoryPicker.ts 原生选择器
+├── ai/           模型协议、请求、读流、重试与补全
+├── agent/        模型与工具循环、压缩与工具实现
+├── http/         按业务分组的 API、WebSocket、静态资源与来源校验
+├── chats/        对话存取、轮次、消息、压缩、提示词、模型输入与确认
+├── files/        文件树、常用目录、附件与监听
+├── git/          Git 仓库操作
+├── browser/      浏览器宿主、收藏、历史、密码与图标
+├── apps/         应用注册、进程、宿主能力与任务
+├── widgets/      组件注册、站点、数据库、模型与网络
+├── skills/       技能注册与文档解析
+├── terminals/    交互式终端与后台命令
+└── shared/       前后端共用事件契约
+desktop/          Electron 桌面壳
+ui/src/api/       按同名业务模块划分请求与类型
+ui/src/components/   侧栏、标签页、对话、文件、设置与组件
 ```
 
 `server/agent/` 不知道对话是什么,只接收组装好的 items、工具表和 run(call) 跑循环;压缩在循环里每次请求前判断。消息**逐条落库**:
