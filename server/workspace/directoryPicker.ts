@@ -24,6 +24,8 @@ const commandExists = (cmd: string) => {
 
 const isCancel = (error: any) => {
   const text = `${error?.message || ""}\n${error?.stderr || ""}`;
+  // macOS 的取消文案随系统语言变化,用 AppleScript 错误码识别。
+  if (process.platform === "darwin" && /\(-128\)/.test(text)) return true;
   return /cancel|canceled|cancelled|用户取消/i.test(text);
 };
 
@@ -32,7 +34,7 @@ const pickDirectory = async () => {
     if (process.platform === "darwin") {
       const picked = await run("osascript", [
         "-e",
-        'POSIX path of (choose folder with prompt "选择工作区文件夹")',
+        'POSIX path of (choose folder with prompt "选择文件夹")',
       ]);
       return picked ? path.resolve(picked) : null;
     }
@@ -41,7 +43,7 @@ const pickDirectory = async () => {
       const script = [
         "Add-Type -AssemblyName System.Windows.Forms",
         "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
-        '$dialog.Description = "选择工作区文件夹"',
+        '$dialog.Description = "选择文件夹"',
         "$dialog.ShowNewFolderButton = $false",
         "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $dialog.SelectedPath }",
       ].join("; ");
@@ -50,11 +52,11 @@ const pickDirectory = async () => {
     }
 
     if (commandExists("zenity")) {
-      const picked = await run("zenity", ["--file-selection", "--directory", "--title=选择工作区文件夹"]);
+      const picked = await run("zenity", ["--file-selection", "--directory", "--title=选择文件夹"]);
       return picked ? path.resolve(picked) : null;
     }
     if (commandExists("kdialog")) {
-      const picked = await run("kdialog", ["--getexistingdirectory", process.cwd(), "选择工作区文件夹"]);
+      const picked = await run("kdialog", ["--getexistingdirectory", process.cwd(), "选择文件夹"]);
       return picked ? path.resolve(picked) : null;
     }
 

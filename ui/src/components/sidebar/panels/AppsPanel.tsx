@@ -73,7 +73,7 @@ export function AppsPanel({ socket, onOpenApp, onCreate }: {
           </div>
         </div>
       )}
-      <div className="flex-1 min-h-0 overflow-y-auto py-1">
+      <div className="flex-1 min-h-0 overflow-y-auto">
       {apps.map((app) => (
         <div
           key={app.id}

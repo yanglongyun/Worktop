@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { FolderPlus, FolderOpen, X } from "lucide-react";
 
-// 添加工作区对话框:输入/选择一个磁盘目录作为新的工作区 root。
+// 添加文件夹对话框:输入/选择一个磁盘目录作为新的工作区 root。
 export function AddWorkspaceDialog({
   value,
   error,
@@ -34,7 +34,7 @@ export function AddWorkspaceDialog({
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2 text-[14px] font-medium text-text">
             <FolderPlus size={15} className="text-accent" />
-            <span>添加工作区</span>
+            <span>添加文件夹</span>
           </div>
           <button
             type="button"
@@ -46,7 +46,7 @@ export function AddWorkspaceDialog({
           </button>
         </div>
         <div className="space-y-3 px-4 py-4">
-          <label className="block text-[12px] font-medium text-text-dim">工作区路径</label>
+          <label className="block text-[12px] font-medium text-text-dim">文件夹路径</label>
           <div className="flex gap-2">
             <input
               ref={inputRef}

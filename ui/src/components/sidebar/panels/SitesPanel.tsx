@@ -9,12 +9,13 @@
 // 拖拽用指针事件,和标签栏同一套路:超阈值才算拖、挂 lib/drag.ts 的
 // 全局护栏(webview/iframe 会吞 pointerup)、松手事件被吞时靠 buttons===0 自愈。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Pin, PinOff, Trash2, Upload, User, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Pin, PinOff, Trash2, Upload, User, X } from "lucide-react";
 import { isPinned, togglePin } from "../../../lib/railPins";
 import { api, type HistoryEntry, type PasswordEntry, type Site } from "../../../api";
 import { beginGlobalDrag, endGlobalDrag } from "../../../lib/drag";
 import { ChromeImportDialog, ContextMenu, dialog, showToast, type MenuItem } from "../../ui";
 import { Toolbar } from "../Toolbar";
+import { PanelEmptyState } from "./PanelEmptyState";
 
 const hostOf = (url: string) => { try { return new URL(url).host; } catch { return url; } };
 const OPEN_KEY = "worktop.sites.openFolders";
@@ -63,6 +64,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
   socket: { on: (event: string, fn: (payload: unknown) => void) => () => void };
 }) {
   const [sites, setSites] = useState<Site[]>([]);
+  const [sitesLoaded, setSitesLoaded] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [hits, setHits] = useState<HistoryEntry[]>([]);
   const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
@@ -76,7 +78,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
   const dragRef = useRef<{ id: string; startY: number; dragging: boolean; drop: Drop } | null>(null);
   const suppressClick = useRef(false);
 
-  const load = useCallback(() => { void api.listSites().then(setSites).catch(() => {}); }, []);
+  const load = useCallback(() => { void api.listSites().then((rows) => { setSites(rows); setSitesLoaded(true); }).catch(() => {}); }, []);
   const loadHistory = useCallback(() => { void api.listHistory().then(setHistory).catch(() => {}); }, []);
   const loadPasswords = useCallback(() => { void api.listPasswords().then(setPasswords).catch(() => {}); }, []);
   useEffect(() => { load(); loadHistory(); loadPasswords(); }, [load, loadHistory, loadPasswords]);
@@ -153,7 +155,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
       { danger: true, confirmText: isFolder ? "删除" : "移除" }))) return;
     try { await api.removeSite(site.id); load(); } catch { /* 列表会自己对齐 */ }
   };
-  const siteInputClass = "w-full h-7 px-2 rounded border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
+  const siteInputClass = "w-full h-7 px-2 border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
   // 编辑在行下就地展开:网站改名字 + 网址,文件夹只改名字
   // id 为 null = 新建(parentId 说明放哪);否则是编辑已有的一条
   const [siteEditing, setSiteEditing] = useState<{ id: string | null; kind: Site["kind"]; title: string; url: string; parentId?: string | null } | null>(null);
@@ -410,7 +412,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
         className={[
           "group relative flex items-center gap-2 py-[5px] pr-2 cursor-pointer select-none text-text transition-colors",
           dragId === site.id ? "opacity-40" : "",
-          marker === "inside" ? "bg-accent-soft" : "hover:bg-bg-hover",
+          marker === "inside" ? "bg-accent-soft" : siteEditing?.id === site.id ? "bg-bg-hover" : "hover:bg-bg-hover",
         ].join(" ")}
       >
         {marker === "before" && <span className="absolute left-3 right-2 -top-px h-0.5 rounded bg-accent" />}
@@ -443,7 +445,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
   };
   const siteEditor = () => siteEditing && (
     <div
-      className="mx-2 my-1.5 p-2.5 rounded-lg border border-border bg-bg-raised flex flex-col gap-1.5"
+      className="border-b border-border bg-bg px-3 py-2 flex flex-col gap-1.5"
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => { if (e.key === "Escape") setSiteEditing(null); if (e.key === "Enter") void saveSite(); }}
@@ -453,12 +455,12 @@ export function SitesPanel({ onOpenUrl, socket }: {
       )}
       <input className={siteInputClass} placeholder={siteEditing.id === null ? "名称(留空用网站标题)" : "名称"} autoFocus={siteEditing.id !== null} value={siteEditing.title} onChange={(e) => setSiteEditing({ ...siteEditing, title: e.target.value })} />
       <div className="flex gap-1.5 pt-0.5">
-        <button onClick={() => void saveSite()} className="h-7 px-3 rounded bg-accent text-white text-[12.5px] hover:opacity-90">{siteEditing.id === null ? "添加" : "保存"}</button>
-        <button onClick={() => setSiteEditing(null)} className="h-7 px-3 rounded border border-border text-[12.5px] text-text-dim hover:text-text hover:bg-bg-hover">取消</button>
+        <button onClick={() => void saveSite()} className="h-7 px-3 bg-accent text-white text-[12.5px] hover:opacity-90">{siteEditing.id === null ? "添加" : "保存"}</button>
+        <button onClick={() => setSiteEditing(null)} className="h-7 px-3 border border-border text-[12.5px] text-text-dim hover:text-text hover:bg-bg-hover">取消</button>
         {siteEditing.id !== null && (
           <button
             onClick={() => { const t = sites.find((x) => x.id === siteEditing.id); if (t) { setSiteEditing(null); void remove(t); } }}
-            className="ml-auto h-7 px-2 rounded text-[12.5px] text-danger hover:bg-bg-hover"
+            className="ml-auto h-7 px-2 text-[12.5px] text-danger hover:bg-bg-hover"
           >
             {siteEditing.kind === "folder" ? "删除" : "移除"}
           </button>
@@ -466,14 +468,15 @@ export function SitesPanel({ onOpenUrl, socket }: {
       </div>
     </div>
   );
-  const Tree = ({ parentId, depth }: { parentId: string | null; depth: number }) => (
+  // 直接渲染树结构,避免父组件重渲染时重挂整棵树和正在输入的表单。
+  const renderTree = (parentId: string | null, depth: number): React.ReactNode => (
     <>
       {childrenOf(parentId).map((site) => (
         <div key={site.id}>
           <Row site={site} depth={depth} />
           {siteEditing?.id === site.id && siteEditor()}
           {siteEditing?.id === null && siteEditing.parentId === site.id && siteEditor()}
-          {site.kind === "folder" && open.has(site.id) && <Tree parentId={site.id} depth={depth + 1} />}
+          {site.kind === "folder" && open.has(site.id) && renderTree(site.id, depth + 1)}
         </div>
       ))}
     </>
@@ -494,26 +497,26 @@ export function SitesPanel({ onOpenUrl, socket }: {
     );
   };
 
-  const inputClass = "w-full h-7 px-2 rounded border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
+  const inputClass = "w-full h-7 px-2 border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
   // 编辑表单是函数不是组件:组件每次渲染都是新身份会被重挂,输入一个字就失焦
   const passwordEditor = () => pwEditing && (
-    <div className="mx-2 my-1.5 p-2.5 rounded-lg border border-border bg-bg-raised flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+    <div className="border-b border-border bg-bg px-3 py-2 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
       <input className={inputClass} placeholder="网址" autoFocus={!pwEditing.id} value={pwEditing.url} onChange={(e) => setPwEditing({ ...pwEditing, url: e.target.value })} />
       <input className={inputClass} placeholder="账号" value={pwEditing.username} onChange={(e) => setPwEditing({ ...pwEditing, username: e.target.value })} />
       <div className="flex gap-1">
         <input className={`${inputClass} font-mono`} type={pwShowInput ? "text" : "password"} placeholder="密码" value={pwEditing.password} onChange={(e) => setPwEditing({ ...pwEditing, password: e.target.value })} />
-        <button onClick={() => setPwShowInput((v) => !v)} title="显示 / 隐藏" className="shrink-0 w-7 h-7 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover">
+        <button onClick={() => setPwShowInput((v) => !v)} title="显示 / 隐藏" className="shrink-0 w-7 h-7 flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover">
           {pwShowInput ? <EyeOff size={13} /> : <Eye size={13} />}
         </button>
       </div>
       <input className={inputClass} placeholder="备注" value={pwEditing.note} onChange={(e) => setPwEditing({ ...pwEditing, note: e.target.value })} />
       <div className="flex gap-1.5 pt-0.5">
-        <button onClick={() => void savePassword()} className="h-7 px-3 rounded bg-accent text-white text-[12.5px] hover:opacity-90">保存</button>
-        <button onClick={() => setPwEditing(null)} className="h-7 px-3 rounded border border-border text-[12.5px] text-text-dim hover:text-text hover:bg-bg-hover">取消</button>
+        <button onClick={() => void savePassword()} className="h-7 px-3 bg-accent text-white text-[12.5px] hover:opacity-90">保存</button>
+        <button onClick={() => setPwEditing(null)} className="h-7 px-3 border border-border text-[12.5px] text-text-dim hover:text-text hover:bg-bg-hover">取消</button>
         {pwEditing.id && (
           <button
             onClick={() => { const p = passwords.find((x) => x.id === pwEditing.id); if (p) void removePassword(p); }}
-            className="ml-auto h-7 px-2 rounded text-[12.5px] text-danger hover:bg-bg-hover"
+            className="ml-auto h-7 px-2 text-[12.5px] text-danger hover:bg-bg-hover"
           >
             删除
           </button>
@@ -590,7 +593,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
       <Toolbar value={q} onChange={setQ} placeholder={placeholder} add={addAction} more={moreItems} />
 
       {view === "sites" ? (
-        <div ref={listRef} className="flex-1 overflow-y-auto py-1">
+        <div ref={listRef} className="flex-1 overflow-y-auto">
           {needle ? (
             <>
               {siteHits.map((site) => (
@@ -606,13 +609,21 @@ export function SitesPanel({ onOpenUrl, socket }: {
           ) : (
             <>
               {siteEditing?.id === null && !siteEditing.parentId && siteEditor()}
-              <Tree parentId={null} depth={0} />
-              {!sites.length && empty("还没有收藏的网站")}
+              {renderTree(null, 0)}
+              {sitesLoaded && !sites.length && !siteEditing && (
+                <PanelEmptyState
+                  title="还没有收藏的网站"
+                  description="从 Chrome 导入书签，也可以点击上方 ＋ 添加常用网站。"
+                  action="从 Chrome 导入"
+                  icon={<Download size={13} />}
+                  onAction={() => setImportOpen(true)}
+                />
+              )}
             </>
           )}
         </div>
       ) : view === "history" ? (
-        <div className="flex-1 overflow-y-auto py-1">
+        <div className="flex-1 overflow-y-auto">
           {needle ? (
             <>
               {hits.map((h) => <HistoryRow key={h.url} h={h} />)}
@@ -631,9 +642,9 @@ export function SitesPanel({ onOpenUrl, socket }: {
           )}
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto py-1">
+        <div className="flex-1 overflow-y-auto">
           {pwEditing && !pwEditing.id && passwordEditor()}
-          {passwordRows.map((p) => <PasswordRow key={p.id} p={p} />)}
+          {passwordRows.map((p) => <div key={p.id}>{PasswordRow({ p })}</div>)}
           {!passwordRows.length && !pwEditing && (
             needle
               ? empty("没有匹配的密码")
