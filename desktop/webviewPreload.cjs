@@ -18,6 +18,7 @@
   const LONG_MOVE = 196;          // 超过这个距离走贝塞尔曲线,否则直线小挪
   const COLOR = "#2383e2";
   const REST_ROTATION = -8;
+  const CURSOR_IDLE_MS = 1800;
 
   const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
   const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
@@ -80,6 +81,7 @@
 
   // ── 光标 ────────────────────────────────────────────────────────────
   let c = null;
+  let idleTimer = null;
 
   const ensureCursor = () => {
     if (c || !document.body) return c;
@@ -91,6 +93,7 @@
     const node = document.createElement("div");
     Object.assign(node.style, {
       position: "absolute", left: "0", top: "0", width: "22px", height: "26px",
+      opacity: "0",
       transformOrigin: "2px 2px", willChange: "transform, opacity, filter",
     });
     const img = document.createElement("img");
@@ -133,6 +136,22 @@
   };
 
   const ensureFrame = () => { if (!c.frame) c.frame = requestAnimationFrame(tick); };
+
+  // 指针只表示近期浏览器操作,不常驻网页。每次操作重新计时,也覆盖只有 hover 或操作失败的情况。
+  const scheduleHide = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      idleTimer = null;
+      c.motion = null; c.thinkAt = null; c.rotation = 0;
+      const done = c.onArrive; c.onArrive = null;
+      done?.(); // 后台页动画可能暂停,不能让到达回执悬着
+      c.ripple.getAnimations().forEach((a) => a.cancel());
+      c.visible.target = 0;
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) forceTo(c.visible, 0);
+      render();
+      ensureFrame();
+    }, CURSOR_IDLE_MS);
+  };
 
   function tick(time) {
     c.frame = null;
@@ -189,6 +208,7 @@
 
   ipcRenderer.on("worktop:cursor", (_event, { x, y, seq, animate }) => {
     if (!ensureCursor()) return;
+    scheduleHide();
     const target = {
       x: clamp(Number(x) || 0, 0, window.innerWidth),
       y: clamp(Number(y) || 0, 0, window.innerHeight),
@@ -218,6 +238,7 @@
 
   ipcRenderer.on("worktop:cursor-pulse", (_event, { x, y }) => {
     if (!ensureCursor()) return;
+    scheduleHide();
     // 涟漪画在**真实落点**上 —— 即便光标是瞬移过去的,「点了哪里」也要看得见
     if (Number.isFinite(x) && Number.isFinite(y) && dist(c.pos, { x, y }) > 2) jumpTo({ x, y });
     c.ripple.getAnimations().forEach((a) => a.cancel());
