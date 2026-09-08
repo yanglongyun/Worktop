@@ -16,10 +16,20 @@ export type RailPin = {
 const KEY = "worktop.rail.pins";
 const EVENT = "worktop:rail-pins-changed";
 
+// 第一次打开时活动栏不该是空的:预装的应用和小组件先固定几个,让人知道这一栏是干什么的。
+// 用户取消固定就写回空数组,以后不再补。
+const DEFAULT_PINS: RailPin[] = [
+  { kind: "app", id: "notes", title: "笔记", hasIcon: true },
+  { kind: "app", id: "ramify", title: "创意", hasIcon: true },
+  { kind: "widget", id: "todo", title: "待办", icon: "✅" },
+  { kind: "widget", id: "notes", title: "便签", icon: "📌" },
+];
+
 const readPins = (): RailPin[] => {
   try {
     const raw = localStorage.getItem(KEY);
-    const value = raw == null ? null : JSON.parse(raw);
+    if (raw == null) return DEFAULT_PINS;
+    const value = JSON.parse(raw);
     return Array.isArray(value) ? value.filter((p) => p && typeof p.id === "string" && typeof p.kind === "string") : [];
   } catch { return []; }
 };
