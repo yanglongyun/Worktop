@@ -315,16 +315,10 @@ export function App() {
       }
       if (kind === "web") {
         if (!input) return;
-        // 网址卡:像地址栏 —— 是网址就打开,不是就交给设置里选的搜索引擎
-        const url = toNavigableUrl(input);
-        const existing = tabGroups.findWebTab(url);
-        if (existing) {
-          // 同站已开:别开第二个,关掉这张空白页去聚焦那个
-          tabGroups.closeTab(groupId, tabId);
-          tabGroups.activateTab(existing.groupId, existing.tab.id);
-        } else {
-          tabGroups.replaceTab(groupId, tabId, webTab(url));
-        }
+        // 网址卡:像地址栏 —— 是网址就打开,不是就交给设置里选的搜索引擎。
+        // 用户亲手输入的一律在这张新标签里打开,不按站点去重:搜完 a 再搜 b,
+        // 按站点找会把人扔回 a 的结果页,看起来就是「没搜」。
+        tabGroups.replaceTab(groupId, tabId, webTab(toNavigableUrl(input)));
         return;
       }
       tabGroups.replaceTab(groupId, tabId, chatStartTab(input, !!input));
