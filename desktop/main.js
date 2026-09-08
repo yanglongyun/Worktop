@@ -477,7 +477,10 @@ const checkUpdatesManually = async () => {
     else if (cmp < 0) dialog.showMessageBox({ message: `当前版本 ${current} 比线上的 ${latest} 更新,无需更新。` });
     else dialog.showMessageBox({ message: `发现新版本 ${latest},正在后台下载,完成后会提示重启更新。` });
   } catch (error) {
-    dialog.showErrorBox("检查更新失败", String(error?.message || error));
+    const message = String(error?.message || error);
+    // app:mac(--dir)出的测试包不带 app-update.yml,只有 dist:mac 的分发包才有
+    if (/app-update\.yml/.test(message)) dialog.showMessageBox({ message: "这个包不是正式分发包,不支持自动更新。" });
+    else dialog.showErrorBox("检查更新失败", message);
   }
 };
 
