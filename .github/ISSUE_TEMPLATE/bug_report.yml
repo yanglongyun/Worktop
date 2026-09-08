@@ -57,7 +57,7 @@ body:
     id: logs
     attributes:
       label: 日志 / 截图
-      description: 服务端日志(arbor.log)、浏览器控制台错误、截图
+      description: 服务端日志、浏览器控制台错误、截图
       render: text
     validations:
       required: false

@@ -197,6 +197,7 @@ export function App() {
       tabGroups.openWeb(url, undefined, {
         openerId: openerId || undefined,
         background: !!detail.background,
+        fresh: true,
       });
     };
     window.addEventListener("worktop:open-web-tab", onOpenTab);

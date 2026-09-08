@@ -242,11 +242,13 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
   const openWeb = useCallback((
     url: string,
     title?: string,
-    opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string; openerId?: string; background?: boolean } = {},
+    opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string; openerId?: string; background?: boolean; fresh?: boolean } = {},
   ): WebTab | null => {
     const exact = exactKey(url);
     const host = hostKey(url);
-    for (const groupId of groupOrder) {
+    // fresh:用户在网页里点出来的新标签(target=_blank / window.open)。真浏览器每次都开新页;
+    // 若按站点去重,同站已开时点击只会「聚焦旧标签」—— 在后台里点「新的创作」看起来就是毫无反应。
+    for (const groupId of opts.fresh ? [] : groupOrder) {
       const tabs = groupsRef.current[groupId].tabs;
       const existing =
         tabs.find((tab): tab is WebTab => isWebTab(tab) && exactKey(tab.url) === exact)
