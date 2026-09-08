@@ -57,7 +57,8 @@
       },
       {
         "from": "resources",
-        "to": "core/resources"
+        "to": "core/resources",
+        "filter": ["**/*", "!**/node_modules/**", "!**/.git/**", "!**/test/**"]
       },
       {
         "from": "dist/node-runtime",
