@@ -86,7 +86,7 @@ export function App() {
   // 对话正文里的本机路径(markdown.ts 打上 data-path):点了在文件面板里打开
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      const el = (e.target as HTMLElement | null)?.closest?.("[data-path]") as HTMLElement | null;
+      const el = (e.target as HTMLElement | null)?.closest?.(".prose [data-path]") as HTMLElement | null; // 只认正文;侧栏预览里的路径点了应该是进对话
       if (!el) return;
       const p = el.dataset.path || "";
       if (!p) return;
