@@ -9,7 +9,7 @@ import { tabForWcId, useBrowserHost, wcIdForTab } from "./lib/webviewHost";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
-import { WorkspaceLayout, isAppTab, isSettingsTab, isContentTab, useTabGroups, terminalTab, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
+import { WorkspaceLayout, isAppTab, isSettingsTab, isContentTab, useTabGroups, appTab, terminalTab, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { toNavigableUrl } from "./lib/search";
 import { BrowsingPrompts, DialogHost, dialog, showToast, SystemNotices, ToastHost } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, X, PanelRight } from "./components/ui/icons";
@@ -336,16 +336,15 @@ export function App() {
     const onLaunchApp = (e: Event) => {
       const { tabId, groupId, appId, name } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; appId?: string; name?: string };
       if (!tabId || !groupId || !appId) return;
-      tabGroups.closeTab(groupId, tabId);
-      openApp(appId, name || appId);
+      // 就地换身,别「先关再开」:closeTab 是异步的,后面那步 openTab 拿到的还是关之前的分组快照,
+      // 结果是新标签页关了、应用没开出来 —— 点一下什么都没发生。
+      tabGroups.replaceTab(groupId, tabId, appTab(appId, name || appId));
     };
     const onLaunchCreate = (e: Event) => {
       const { tabId, groupId, kind } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; kind?: string };
+      if (kind === "terminal" && tabId && groupId) { tabGroups.replaceTab(groupId, tabId, terminalTab("", "终端")); return; }
       if (tabId && groupId) tabGroups.closeTab(groupId, tabId);
       if (kind === "file") { void createAtCurrentTarget("file"); return; }
-      if (kind === "terminal") {
-        tabGroups.openTerminal("", "终端");
-      }
     };
     window.addEventListener("worktop:new-tab", onNewTab);
     window.addEventListener("worktop:new-chat", onNewChat);
