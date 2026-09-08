@@ -5,6 +5,7 @@
   <p>对话 · 文件 · 终端 · 浏览器 · 应用 · 小组件</p>
   <p>A personal AI desktop for everyday work.</p>
   <p>
+    <a href="https://worktop.iimos.ai">官网下载</a> ·
     <a href="#开始使用">开始使用</a> ·
     <a href="#开发与构建">开发与构建</a> ·
     <a href="https://github.com/yanglongyun/Worktop/issues">反馈与建议</a> ·
@@ -49,7 +50,9 @@ Worktop 是一个个人 AI 工作台。你可以和 AI 讨论想法，也可以�
 
 ## 开始使用
 
-从源码启动桌面应用。需要 Git、npm，以及支持内置 `node:sqlite` 的 Node.js，建议使用 Node.js 22.13 或更新版本。
+**直接安装**:到 [worktop.iimos.ai](https://worktop.iimos.ai) 下载 macOS(Apple Silicon)或 Windows 安装包,装好后按下面第 1 步配置模型即可。macOS 版已签名公证;应用内置自动更新。
+
+**从源码启动**:需要 Git、npm，以及支持内置 `node:sqlite` 的 Node.js，建议使用 Node.js 22.13 或更新版本。
 
 ```bash
 git clone https://github.com/yanglongyun/Worktop.git
