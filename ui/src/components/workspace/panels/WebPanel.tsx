@@ -229,10 +229,21 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
 
   const openExternal = () => window.open(tab.url, "_blank");
 
-  // 收藏进「网站」面板。服务端按站点键去重,所以重复点不会插重复行;
-  // 已收藏时星标点亮 —— 否则点下去毫无反馈,用户不知道成没成。
-  const addToSites = () => {
-    void browserApi.createBookmark({ url: tab.url, title: tab.title }).then(() => setStarred(true)).catch(() => {});
+  // 星标是开关:没收藏就收进「网站」面板,已收藏(点亮)再点就移除。
+  // 移除按站点键找那条记录 —— 和上面判断点亮用的是同一个键,保证亮着的一定能删掉。
+  const toggleSite = () => {
+    if (!starred) {
+      void browserApi.createBookmark({ url: tab.url, title: tab.title }).then(() => setStarred(true)).catch(() => {});
+      return;
+    }
+    const key = hostKey(tab.url);
+    void browserApi.listBookmarks()
+      .then((sites) => {
+        const hit = sites.find((site) => site.kind === "site" && hostKey(site.url) === key);
+        return hit ? browserApi.removeBookmark(hit.id) : null;
+      })
+      .then(() => setStarred(false))
+      .catch(() => {});
   };
 
   if (!IN_ELECTRON) {
@@ -286,8 +297,8 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
         />
         <button
           className={starred ? `${navBtn} text-accent hover:text-accent` : navBtn}
-          title={starred ? "已在「网站」面板" : "添加到「网站」面板"}
-          onClick={addToSites}
+          title={starred ? "从「网站」面板移除" : "添加到「网站」面板"}
+          onClick={toggleSite}
         >
           <Star size={13} fill={starred ? "currentColor" : "none"} />
         </button>

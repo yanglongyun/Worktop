@@ -1,6 +1,6 @@
 {
   "name": "worktop",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "type": "module",
   "description": "Worktop — 个人 AI 工作台:对话、文件、浏览器与应用",
