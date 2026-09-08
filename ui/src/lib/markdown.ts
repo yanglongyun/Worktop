@@ -12,10 +12,29 @@ renderer.html = () => "";
 
 const badUrl = (url: unknown) => /^\s*(javascript|data|vbscript):/i.test(String(url || ""));
 
+// 本机路径:`~/Desktop/报告.html` 或 [报告](~/Desktop/报告.html) —— 渲染成可点的节点,
+// 点了在文件面板里打开(App 里统一接 data-path 的点击)。只认 ~/ 与含两级以上的绝对路径,
+// 避免把 /api/chats 这类 URL 片段当成文件。
+const LOCAL_PATH = /^(~\/[^\s`]+|\/[^\s`\/]+\/[^\s`]+)$/;
+const isLocalPath = (s: unknown) => LOCAL_PATH.test(String(s || "").trim());
+const escapeAttr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
 const baseLink = renderer.link.bind(renderer);
 renderer.link = (token) => {
+  if (isLocalPath(token.href)) {
+    const p = String(token.href).trim();
+    return `<a href="#" data-path="${escapeAttr(p)}" title="${escapeAttr(p)}">${token.text}</a>`;
+  }
   if (badUrl(token.href)) token.href = "#";
   return baseLink(token);
+};
+const baseCodespan = renderer.codespan.bind(renderer);
+renderer.codespan = (token) => {
+  if (isLocalPath(token.text)) {
+    const p = String(token.text).trim();
+    return `<code data-path="${escapeAttr(p)}" title="在文件面板里打开">${escapeAttr(p)}</code>`;
+  }
+  return baseCodespan(token);
 };
 const baseImage = renderer.image.bind(renderer);
 renderer.image = (token) => {

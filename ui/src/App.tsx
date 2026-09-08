@@ -83,6 +83,22 @@ export function App() {
     tabGroups.openGit(repo.root, repo.fileRootTitle || "Git");
   };
 
+  // 对话正文里的本机路径(markdown.ts 打上 data-path):点了在文件面板里打开
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest?.("[data-path]") as HTMLElement | null;
+      if (!el) return;
+      const p = el.dataset.path || "";
+      if (!p) return;
+      e.preventDefault();
+      filesApi.getNode(p)
+        .then((r) => openNode(r.item, { side: e.metaKey || e.ctrlKey }))
+        .catch(() => showToast(`找不到 ${p}`));
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  });
+
   // 树相关 WS 事件 → 刷新树/状态点(节流,流式时 message 事件很密)
   useEffect(() => {
     // 节流定时器放 ref:effect 若因依赖变化重跑,cleanup 不会把「排队中的刷新」

@@ -16,8 +16,10 @@ import { listRoots, setRootTitle } from "./roots.js";
 const SEP = path.sep;
 
 
-const isPathId = (id) => typeof id === "string" && id.startsWith("/");
-const normalizeAbs = (p) => path.resolve(String(p || "").trim());
+// 对话正文里的路径常写成 ~/…(模型和用户都这么写),点开时也要认
+const expandHome = (p) => (p === "~" || p.startsWith("~/")) ? path.join(os.homedir(), p.slice(1)) : p;
+const isPathId = (id) => typeof id === "string" && (id.startsWith("/") || id.startsWith("~/"));
+const normalizeAbs = (p) => path.resolve(expandHome(String(p || "").trim()));
 const withSep = (abs) => abs.endsWith(SEP) ? abs : abs + SEP;
 const isUnder = (abs, root) => abs === root || abs.startsWith(withSep(root));
 const rootPaths = () => listRoots().map((r) => r.path);

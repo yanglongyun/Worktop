@@ -195,6 +195,9 @@ body.wt-dragging iframe { pointer-events: none !important; }
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.prose [data-path] { cursor: pointer; }
+.prose code[data-path] { color: var(--color-accent); }
+.prose code[data-path]:hover { text-decoration: underline; text-underline-offset: 2px; }
 .prose strong { font-weight: 600; }
 .prose em { font-style: italic; }
 .prose hr {
