@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("worktopDesktop", {
 
   /** 更新已下载后调用:退出并安装新版本。 */
   installUpdate: () => ipcRenderer.invoke("worktop:install-update"),
+  /** 「关于」页的手动检查更新:结果由壳用系统对话框告知。 */
+  checkUpdates: () => ipcRenderer.invoke("worktop:check-updates"),
 
   /** 这台机器能不能导入 Chrome 登录态(macOS + 装了 Chrome)。 */
   chromeImportAvailable: () => ipcRenderer.invoke("worktop:chrome-import-available"),

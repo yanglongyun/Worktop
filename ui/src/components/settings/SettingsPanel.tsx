@@ -19,7 +19,7 @@ const categories = [
   { id: "skills", label: "技能", icon: Sparkles, description: "点击技能名称，在新标签页阅读说明。" },
   { id: "general", label: "通用", icon: SettingsIcon, description: "让 Worktop 更符合你的使用习惯。" },
   { id: "advanced", label: "高级", icon: SlidersHorizontal, description: "调整长对话和工具结果的处理方式。" },
-  { id: "about", label: "关于", icon: Info, description: "Worktop · 本地 AI 工作台" },
+  { id: "about", label: "关于", icon: Info, description: "Worktop · 个人 AI 工作台" },
 ] as const;
 type Category = typeof categories[number]["id"];
 type SaveGroup = "connection" | "system" | "advanced" | "telemetry";
@@ -172,7 +172,12 @@ export function SettingsPanel({ onSaved, onOpenSkill }: { onSaved?: (settings: S
             </div>
             <div hidden={category !== "about"}><Section title="Worktop">
               <div className="flex items-center justify-between text-[13px]"><span className="text-text-dim">当前版本</span><span className="text-text">{__APP_VERSION__}</span></div>
-              <a href="https://github.com/yanglongyun/Worktop" target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-1.5 text-[13px] text-accent hover:underline">访问 GitHub 项目<ExternalLink size={13} /></a>
+              <div className="mt-5 flex items-center gap-5">
+                {window.worktopDesktop?.checkUpdates && (
+                  <button type="button" onClick={() => void window.worktopDesktop?.checkUpdates()} className="text-[13px] text-accent hover:underline">检查更新</button>
+                )}
+                <a href="https://github.com/yanglongyun/Worktop" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[13px] text-accent hover:underline">访问 GitHub 项目<ExternalLink size={13} /></a>
+              </div>
             </Section></div>
           </>}
         </div>

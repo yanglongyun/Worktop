@@ -41,6 +41,8 @@ const SLUG = "worktop";
 const APP_NAME = "Worktop";
 // userData 显式钉死:Electron 默认按 productName 取路径,改显示名会让数据"凭空消失"。
 app.setPath("userData", join(app.getPath("appData"), SLUG));
+// 应用菜单里的「关于 / 隐藏 / 退出 xxx」取的是 app.name,默认落到 package.json 的 name(小写 slug)
+app.setName(APP_NAME);
 
 let child = null;
 let quitting = false;
@@ -388,6 +390,7 @@ const setupUpdates = async () => {
   } catch { /* 没打 updater 产物就不更新 */ }
 };
 ipcMain.handle("worktop:install-update", () => { updater?.install(); });
+ipcMain.handle("worktop:check-updates", () => checkUpdatesManually());
 
 // ── 网页标签的 session:独立分区 ────────────────────────────────────────
 // 网页标签用 persist:web,不与应用自身(127.0.0.1)共用 cookie 罐:
@@ -448,6 +451,17 @@ ipcMain.handle("worktop:clear-web-cache", async () => {
   }
 });
 
+/** 1.7.10 > 1.7.9:按段比数字,别按字符串。 */
+const compareVersions = (a, b) => {
+  const pa = String(a).split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d < 0 ? -1 : 1;
+  }
+  return 0;
+};
+
 const checkUpdatesManually = async () => {
   if (!updater) {
     dialog.showMessageBox({ message: "开发模式不检查更新。" });
@@ -455,11 +469,13 @@ const checkUpdatesManually = async () => {
   }
   try {
     const result = await updater.checkNow();
-    const latest = result?.updateInfo?.version;
-    if (!latest || latest === app.getVersion()) {
-      dialog.showMessageBox({ message: `已是最新版本(${app.getVersion()})。` });
-    }
-    // 有新版会自动后台下载,完成后应用内弹「重启更新」气泡
+    const latest = String(result?.updateInfo?.version || "");
+    const current = app.getVersion();
+    // 三种结果都要说话:此前只在版本相等时提示,线上比本地旧(刚打包还没发)就静默,用户以为按钮坏了
+    const cmp = compareVersions(latest, current);
+    if (!latest || cmp === 0) dialog.showMessageBox({ message: `已是最新版本(${current})。` });
+    else if (cmp < 0) dialog.showMessageBox({ message: `当前版本 ${current} 比线上的 ${latest} 更新,无需更新。` });
+    else dialog.showMessageBox({ message: `发现新版本 ${latest},正在后台下载,完成后会提示重启更新。` });
   } catch (error) {
     dialog.showErrorBox("检查更新失败", String(error?.message || error));
   }
@@ -506,9 +522,43 @@ const buildMenu = () => {
         { label: "检查更新…", click: () => { void checkUpdatesManually(); } },
       ],
     },
-    { role: "editMenu" },
-    { role: "viewMenu" },
-    { role: "windowMenu" },
+    {
+      label: "编辑",
+      submenu: [
+        { label: "撤销", role: "undo" },
+        { label: "重做", role: "redo" },
+        { type: "separator" },
+        { label: "剪切", role: "cut" },
+        { label: "拷贝", role: "copy" },
+        { label: "粘贴", role: "paste" },
+        { label: "粘贴并匹配样式", role: "pasteAndMatchStyle" },
+        { label: "删除", role: "delete" },
+        { label: "全选", role: "selectAll" },
+      ],
+    },
+    {
+      label: "显示",
+      submenu: [
+        { label: "重新加载", role: "reload" },
+        { label: "强制重新加载", role: "forceReload" },
+        { label: "开发者工具", role: "toggleDevTools" },
+        { type: "separator" },
+        { label: "实际大小", role: "resetZoom" },
+        { label: "放大", role: "zoomIn" },
+        { label: "缩小", role: "zoomOut" },
+        { type: "separator" },
+        { label: "全屏", role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "窗口",
+      submenu: [
+        { label: "最小化", role: "minimize" },
+        { label: "缩放", role: "zoom" },
+        { type: "separator" },
+        { label: "前置全部窗口", role: "front" },
+      ],
+    },
   ]));
 };
 

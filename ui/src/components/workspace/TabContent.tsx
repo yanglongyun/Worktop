@@ -104,6 +104,7 @@ export function TabContent({
         onCreated={(node, prompt, attachments) => window.dispatchEvent(new CustomEvent("worktop:chat-created", {
           detail: { tabId: tab.id, groupId, node, prompt, attachments },
         }))}
+        onOpenUrl={(url) => window.dispatchEvent(new CustomEvent("worktop:launch", { detail: { tabId: tab.id, groupId, value: url, kind: "web" } }))}
       />
     );
   }

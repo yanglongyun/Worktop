@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download as DownloadIcon
 import type { WorkspaceGroupId, WebTab } from "../types";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 import { displayUrl, hostKey, normalizeUrl } from "../../../lib/urls";
+import { showToast } from "../../ui/Toast";
 import { toNavigableUrl } from "../../../lib/search";
 import { ChromeImportDialog } from "../../ui";
 import { clearFinishedDownloads, progressText, useDownloads } from "../../../lib/downloads";
@@ -233,7 +234,9 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
   // 移除按站点键找那条记录 —— 和上面判断点亮用的是同一个键,保证亮着的一定能删掉。
   const toggleSite = () => {
     if (!starred) {
-      void browserApi.createBookmark({ url: tab.url, title: tab.title }).then(() => setStarred(true)).catch(() => {});
+      void browserApi.createBookmark({ url: tab.url, title: tab.title })
+        .then(() => { setStarred(true); showToast("已收藏到「网站」面板"); })
+        .catch(() => {});
       return;
     }
     const key = hostKey(tab.url);
@@ -242,7 +245,7 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
         const hit = sites.find((site) => site.kind === "site" && hostKey(site.url) === key);
         return hit ? browserApi.removeBookmark(hit.id) : null;
       })
-      .then(() => setStarred(false))
+      .then(() => { setStarred(false); showToast("已从「网站」面板移除"); })
       .catch(() => {});
   };
 

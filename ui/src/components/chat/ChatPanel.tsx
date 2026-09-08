@@ -15,6 +15,7 @@ import { EVENTS } from "../../../../server/shared/events";
 import { MessageStream } from "./MessageStream";
 import { setupStream } from "./stream";
 import { mkKey, renderRows, type Row } from "./thread";
+import { looksLikeUrl } from "../../lib/urls";
 
 export function ChatPanel({
   node,
@@ -23,6 +24,7 @@ export function ChatPanel({
   onOpenNav: _onOpenNav,
   onOpenSettings,
   onCreated,
+  onOpenUrl,
 }: {
   node: Chat | ChatStartTab;
   onSelect: (n: Chat) => void;
@@ -30,6 +32,8 @@ export function ChatPanel({
   onOpenNav?: () => void;
   onOpenSettings?: () => void;
   onCreated?: (node: Chat, prompt: string, attachments: Attachment[]) => void;
+  /** 起始页里输入的是网址:交给壳开网页标签,不发给模型。 */
+  onOpenUrl?: (url: string) => void;
 }) {
   const isStart = node.kind === "chat-start";
   const creatingRef = useRef(false);
@@ -170,6 +174,8 @@ export function ChatPanel({
     if (!configured) { setModelSetupOpen(true); return; }
     const files = attachments;
     if (isStart) {
+      // 起始页里贴一个网址回车,意图是打开它,不是问 AI
+      if (!files.length && onOpenUrl && looksLikeUrl(text)) { persistDraft(""); onOpenUrl(text); return; }
       if (!onCreated) return;
       creatingRef.current = true;
       setCreating(true);

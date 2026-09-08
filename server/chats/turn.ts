@@ -161,9 +161,11 @@ const runChat = async (chatId) => {
   const rows = [...summaries.slice(-1), ...after.filter((row) => row.meta?.kind !== "compaction")];
   const ledger = createLedger(chatId, rows);
 
+  const ctxLeftovers = new Set<number>();
   try {
     const cwd = executionDirectory();
     const ctx = {
+      leftoverGroups: ctxLeftovers,
       selfChatId: chatId,
       chatId,        // confirm 要用它把提醒卡投到这段对话里
       signal,        // 整轮被停时,悬着的提醒卡跟着收掉
@@ -236,6 +238,8 @@ const runChat = async (chatId) => {
     throw error;
   } finally {
     running.delete(String(chatId));
+    // bash 前台命令用 nohup/& 甩在后台的子进程(见 functions/bash.ts):这轮用完就收掉
+    for (const pgid of ctxLeftovers) { try { process.kill(-pgid, "SIGTERM"); } catch { /* 早就退了 */ } }
   }
 };
 

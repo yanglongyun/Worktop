@@ -122,7 +122,17 @@ export const bash = async ({ command, summary, background, cwd: requestedCwd }, 
         return;
       }
       const body = stdout || stderr || "(no output)";
-      finish(code ? `exit code ${code}${signalName ? ` (${signalName})` : ""}\n${stderr || stdout || ""}` : body);
+      // shell 退了但进程组里还有活的(nohup … & 起的 mock server 之类):不能当场杀 ——
+      // 模型接下来几步可能还要用它;登记到本轮 ctx,整轮结束时统一回收,别留一地孤儿进程。
+      let leftover = "";
+      if (process.platform !== "win32") {
+        try {
+          process.kill(-child.pid, 0);
+          (ctx.leftoverGroups ||= new Set()).add(child.pid);
+          leftover = `\n\n[note] 命令已返回,但它启动的子进程仍在后台运行(进程组 ${child.pid});本轮对话结束时会被自动结束。需要长驻的进程请用 background:true 启动。`;
+        } catch { /* 进程组已空 */ }
+      }
+      finish((code ? `exit code ${code}${signalName ? ` (${signalName})` : ""}\n${stderr || stdout || ""}` : body) + leftover);
     });
   });
 };
