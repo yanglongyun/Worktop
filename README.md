@@ -19,6 +19,8 @@ Worktop 是一个个人 AI 工作台。你可以和 AI 讨论想法，也可以�
 
 对话、文件、终端、网页和应用在同一个窗口中打开，通过**标签页与左右分屏**并排查看。文件保存在你的电脑上，AI 生成的成果可以直接打开、编辑和继续使用。
 
+<p align="center"><img src="docs/screenshots/split.png" alt="一边和 AI 对话，一边看它做出来的东西" width="100%"></p>
+
 ## 在一个窗口里，完成一件事
 
 | 能力 | 你可以做什么 |
@@ -37,6 +39,15 @@ Worktop 是一个个人 AI 工作台。你可以和 AI 讨论想法，也可以�
 > “把这些资料整理成一份能打开查看的 HTML 报告。”
 >
 > “给我做一个喝水打卡的小组件。”
+
+## 界面一览
+
+| | |
+| --- | --- |
+| ![对话](docs/screenshots/chat.png) | ![新标签页](docs/screenshots/newtab.png) |
+| 一句话交给它：读文件、跑命令、写文件 | 新标签页：对话 / 网址 / 命令三种模式 |
+| ![创意画布](docs/screenshots/ramify.png) | ![终端](docs/screenshots/terminal.png) |
+| 内置应用「创意」：一个想法发散成多个方向 | 终端就是终端，Codex / Claude Code 直接跑 |
 
 ## 从对话开始，自然使用电脑
 
