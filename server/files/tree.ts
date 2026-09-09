@@ -31,7 +31,6 @@ const rootOf = (abs) => {
     .filter((root) => isUnder(full, root))
     .sort((a, b) => b.length - a.length)[0] || null;
 };
-const isAllowedPath = (abs) => !!rootOf(abs);
 const isFileRoot = (abs) => rootOf(abs) === normalizeAbs(abs);
 const rootForPath = (abs) => listRoots().find((r) => r.path === normalizeAbs(abs)) || null;
 const parentAbsOf = (abs) => isFileRoot(abs) ? null : path.dirname(normalizeAbs(abs));
@@ -125,7 +124,8 @@ const locate = (id) => {
   const sid = String(id);
   if (!isPathId(sid)) return null; // 非路径 id(如对话 uuid)不归这棵树管
   const abs = normalizeAbs(sid);
-  if (!isAllowedPath(abs)) return null;
+  // 任何真实存在的路径都能定位、打开 —— 文件根只是文件树的入口,不是能不能打开的边界。
+  // AI 的产物默认写在 ~/worktop/outputs/ 下,不加根也要能点开;本机应用里 bash 本就能读写任意文件,再设围栏只会制造「打不开自己刚写的文件」这种 bug。
   let st; try { st = fs.statSync(abs); } catch { return null; }
   return { kind: st.isDirectory() ? "folder" : "file", abs };
 };
