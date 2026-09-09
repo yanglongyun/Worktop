@@ -118,7 +118,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
 
   const openTab = useCallback((
     tab: WorkspaceTab,
-    opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean; background?: boolean } = {},
+    opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean; background?: boolean; keepFocus?: boolean } = {},
   ) => {
     const targetId = opts.side ? otherGroup(activeGroupRef.current) : opts.groupId || activeGroupRef.current;
     if (targetId === "side") setSideOpen(true);
@@ -131,7 +131,8 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
         !!opts.background,
       ),
     }));
-    if (!opts.background) setActiveGroupId(targetId);
+    // background 完全不激活;keepFocus 激活了新标签(在目标半区可见)但不把焦点从当前半区抢走。
+    if (!opts.background && !opts.keepFocus) setActiveGroupId(targetId);
   }, []);
 
   const openNode = useCallback((node: (Chat | FileNode) | null, opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean } = {}) => {
@@ -213,9 +214,10 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     });
   }, []);
 
-  const activateTab = useCallback((groupId: WorkspaceGroupId, id: string) => {
+  const activateTab = useCallback((groupId: WorkspaceGroupId, id: string, keepFocus = false) => {
     setGroups((prev) => ({ ...prev, [groupId]: { ...prev[groupId], activeId: id } }));
-    setActiveGroupId(groupId);
+    // keepFocus:把标签翻到它所在半区的前台,但不把整体焦点抢过去 —— 用户在另一半区(比如聊天)不被打断。
+    if (!keepFocus) setActiveGroupId(groupId);
   }, []);
 
   /** 不知道在哪个组时按 id 激活(browser 截图前把网页标签翻到前台用)。 */
@@ -242,7 +244,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
   const openWeb = useCallback((
     url: string,
     title?: string,
-    opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string; openerId?: string; background?: boolean; fresh?: boolean } = {},
+    opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string; openerId?: string; background?: boolean; fresh?: boolean; keepFocus?: boolean } = {},
   ): WebTab | null => {
     const exact = exactKey(url);
     const host = hostKey(url);
@@ -254,7 +256,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
         tabs.find((tab): tab is WebTab => isWebTab(tab) && exactKey(tab.url) === exact)
         || (host ? tabs.find((tab): tab is WebTab => isWebTab(tab) && hostKey(tab.url) === host) : undefined);
       if (existing) {
-        if (!opts.background) activateTab(groupId, existing.id); // 后台打开:已有的也不抢前台
+        if (!opts.background) activateTab(groupId, existing.id, opts.keepFocus); // 后台打开:已有的也不抢前台
         return existing;
       }
     }

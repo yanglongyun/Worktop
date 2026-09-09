@@ -146,7 +146,7 @@ export function App() {
     }).catch(() => {});
     syncTitles();
     const offs = [
-      socket.on("widget_open_url", (p: any) => { if (p?.url) openWebTab(String(p.url)); }),
+      socket.on("widget_open_url", (p: any) => { if (p?.url) tabGroups.openWeb(String(p.url), undefined, { side: true, keepFocus: true }); }),
       socket.on("widget_toast", (p: any) => { if (p?.message) showToast(String(p.message)); }),
       socket.on("widget_confirm", (p: any) => {
         if (!p?.requestId || !p?.message) return;
@@ -214,7 +214,8 @@ export function App() {
     const off = socket.on("web_tab_open", (p: any) => {
       if (!p?.url) return;
       const token = p.token ? String(p.token) : undefined;
-      const existing = tabGroups.openWeb(String(p.url), undefined, { token, background: true });
+      // AI 开页:放到另一半区并激活(没分屏就分屏),但焦点留在用户这边 —— 正在聊天不被打断,又能看到新开的页。
+      const existing = tabGroups.openWeb(String(p.url), undefined, { token, side: true, keepFocus: true });
       if (existing && token) {
         const wcId = wcIdForTab(existing.id);
         if (wcId != null) {

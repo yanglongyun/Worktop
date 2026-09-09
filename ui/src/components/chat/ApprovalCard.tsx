@@ -33,7 +33,8 @@ export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string
           <span className="min-w-0">{card.risk}</span>
         </div>
       )}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-t border-accent/20 bg-accent/[0.03]">
+      {/* 按钮吸底:小屏时整张卡在父滚动容器里被裁,不吸底的话「允许 / 不允许」会落在裁切区外,用户根本点不到。 */}
+      <div className="sticky bottom-0 flex items-center gap-2 px-4 py-2.5 border-t border-accent/20 bg-bg">
         <button
           onClick={() => answer("deny")}
           disabled={busy}
