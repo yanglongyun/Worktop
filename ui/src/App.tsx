@@ -10,6 +10,7 @@ import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
 import { WorkspaceLayout, isAppTab, isSettingsTab, isContentTab, useTabGroups, appTab, terminalTab, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
+import { type WorkspaceTab } from "./components/workspace/types";
 import { toNavigableUrl } from "./lib/search";
 import { BrowsingPrompts, DialogHost, dialog, showToast, SystemNotices, ToastHost } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, X, PanelRight } from "./components/ui/icons";
@@ -82,6 +83,29 @@ export function App() {
     if (!repo.root) return;
     tabGroups.openGit(repo.root, repo.fileRootTitle || "Git");
   };
+
+  // 工作区快照 → server:开着哪些标签、哪个激活、有没有分屏。变了就推,模型下一轮的提示词里能看到。
+  useEffect(() => {
+    const snap = (tab: WorkspaceTab, active: boolean) => {
+      const base = { id: tab.id, kind: tab.kind, title: tab.title, active };
+      if (tab.kind === "file" || tab.kind === "folder") return { ...base, path: tab.id };
+      if (tab.kind === "terminal") return { ...base, path: tab.cwd };
+      if (tab.kind === "web") return { ...base, url: tab.url };
+      if (tab.kind === "app") return { ...base, appId: tab.appId };
+      if (tab.kind === "git" || tab.kind === "git-diff") return { ...base, path: tab.root };
+      return base;
+    };
+    socket.send({
+      type: "workspace_state",
+      workspace: {
+        groups: tabGroups.visibleGroups.map((g) => ({
+          id: g.id,
+          active: g.id === tabGroups.activeGroupId,
+          tabs: g.tabs.map((t) => snap(t, t.id === g.activeId)),
+        })),
+      },
+    });
+  }, [socket, tabGroups.visibleGroups, tabGroups.activeGroupId]);
 
   // 对话正文里的本机路径(markdown.ts 打上 data-path):点了在文件面板里打开
   useEffect(() => {

@@ -14,6 +14,7 @@ import { emit } from "../bus.js";
 import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "../terminals/terminals.js";
 import { registerHost, registerTab, resolveBrowserResult, unregisterClient, unregisterTab, updateTab } from "../browser/host.js";
 import { normalizeMany as normalizeAttachments } from "../files/attachments.js";
+import { setWorkspace } from "../chats/workspace.js";
 import { isTrustedHost, isTrustedOrigin } from "./origin.js";
 
 const clients = new Set();
@@ -58,10 +59,13 @@ const handleConnection = (ws) => {
     if (type === "web_tab_update") { updateTab(payload); return; }
     if (type === "web_tab_unregister") { unregisterTab(payload); return; }
     if (type === "browser_response") { resolveBrowserResult(payload); return; }
+    // 界面上开着什么(标签 / 激活 / 分屏):每次变化推一份,拼进下一轮的提示词
+    if (type === "workspace_state") { setWorkspace(payload.workspace); return; }
 
     if (type === "send") {
       if (!chatId) { sendJson(ws, { type: "error", error: "missing chatId" }); return; }
       const prompt = String(payload.prompt || "").trim();
+      if (payload.workspace) setWorkspace(payload.workspace); // 发消息时随手带一份,保证这轮拿到的是最新
       let attachments = [];
       try { attachments = normalizeAttachments(payload.attachments); }
       catch (error) { sendJson(ws, { type: "error", error: String(error?.message || error) }); return; }

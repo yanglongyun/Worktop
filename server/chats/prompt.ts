@@ -10,6 +10,7 @@ import os from "node:os";
 import { executionDirectory, outputDirectory } from "../agent/paths.js";
 import { listProductSkills } from "../skills/registry.js";
 import { widgetsHome } from "../widgets/registry.js";
+import { workspaceSection } from "./workspace.js";
 
 const appsSection = () => {
   const apps = listApps();
@@ -96,6 +97,6 @@ ${confirmDoc}
 # 你在哪
 Worktop 是 macOS 上的个人 AI 工作台。用户通过对话交代任务，也可以从左侧活动栏访问文件、网站、应用和小组件。
 对话、文件、终端、网页和应用在标签页中打开，支持分屏并排查看。需要交付文件时，生成用户能打开使用的真实文件。
-组件(侧栏「小组件」面板里的小工具)住在 ${widgetsHome()}/<id>/,用户要造一个时按「技能」里的说明做。${appsSection()}${rulesBlock ? "\n\n" + rulesBlock : ""}
+组件(侧栏「小组件」面板里的小工具)住在 ${widgetsHome()}/<id>/,用户要造一个时按「技能」里的说明做。${workspaceSection(chat.id)}${appsSection()}${rulesBlock ? "\n\n" + rulesBlock : ""}
 `;
 };

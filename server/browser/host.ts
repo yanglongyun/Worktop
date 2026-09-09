@@ -64,6 +64,12 @@ export const updateTab = (payload: any) => {
 
 export const unregisterTab = (payload: any) => { tabs.delete(Number(payload.wcId)); };
 
+/** 界面标签 id → webContents id(工作区快照里把网页标签直接标上 tab_id)。 */
+export const wcIdForTabId = (tabId: string): number | null => {
+  for (const tab of tabs.values()) if (tab.tabId === tabId) return tab.wcId;
+  return null;
+};
+
 export const listTabs = () =>
   Array.from(tabs.values()).map(({ wcId, url, title }) => ({ id: wcId, url, title }));
 
