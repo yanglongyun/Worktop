@@ -1,0 +1,30 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "worktop",
+  "main": "src/index.ts",
+  "account_id": "YOUR_CLOUDFLARE_ACCOUNT_ID",
+  "compatibility_date": "2026-08-31",
+  // 一个 Worker 接两个 hostname,按 host 分派:子站走 ASSETS,api 走路由
+  "routes": [
+    { "pattern": "worktop.iimos.ai", "custom_domain": true },
+    { "pattern": "api.worktop.iimos.ai", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "ui/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // /download/* 要先进 Worker,不然会被 SPA 回落成首页
+    "run_worker_first": ["/download/*"]
+  },
+  // 安装包和更新清单:worktop 自己的桶
+  "r2_buckets": [
+    { "binding": "RELEASES", "bucket_name": "worktop" }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "worktop", "database_id": "YOUR_DATABASE_ID" }
+  ],
+  "analytics_engine_datasets": [
+    { "binding": "EVENTS", "dataset": "worktop_events" }
+  ],
+  "observability": { "enabled": true }
+}

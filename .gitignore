@@ -60,3 +60,7 @@ electron-builder-unsigned.json
 # ─── 不开源:内部文档 ───
 .dev/
 CLAUDE.md
+
+# ─── Cloudflare 部署配置(只提交 example) ───
+site/wrangler.jsonc
+.wrangler/

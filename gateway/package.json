@@ -1,0 +1,17 @@
+{
+  "name": "gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "schema": "wrangler d1 execute gateway --remote --file schema.sql",
+    "key": "node scripts/key.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "typescript": "latest",
+    "wrangler": "4.118.0"
+  }
+}

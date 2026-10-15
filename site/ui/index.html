@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="Worktop 是一个本地 AI 工作台:对话、文件、网站在同一张标签栏里,AI 在你的电脑上跑命令、读写真实文件、操作你登录好的网页。macOS 与 Windows。" />
+    <meta property="og:title" content="Worktop · 一张桌子,人和 AI 一起用" />
+    <meta property="og:description" content="本地 AI 工作台:对话、文件、网站、组件在一个窗口里。AI 产出的是真实文件,不是对话框里的一段代码。" />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <title>Worktop · 本地 AI 工作台</title>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GP5TGKEKLH"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-GP5TGKEKLH');</script>
+  </head>
+  <body>
+<nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="#">
+      <svg width="20" height="20" viewBox="0 0 1024 1024"><rect x="96" y="96" width="832" height="832" rx="188" fill="#20366e"/><g stroke="#0a1230" stroke-width="8" stroke-linejoin="round"><path d="M512 300 L768 428 L512 556 L256 428 Z" fill="#34d399"/><path d="M256 428 L512 556 L512 812 L256 684 Z" fill="#e11d48"/><path d="M768 428 L512 556 L512 812 L768 684 Z" fill="#f59e0b"/></g></svg>
+      Worktop
+    </a>
+    <div class="nav-links">
+      <a href="https://github.com/yanglongyun/Worktop">GitHub</a>
+      <a class="nav-cta" href="#download">下载</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="mark">
+    <svg width="72" height="72" viewBox="0 0 1024 1024"><rect x="96" y="96" width="832" height="832" rx="188" fill="url(#bgg)"/><defs><linearGradient id="bgg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20366e"/><stop offset="1" stop-color="#0a1230"/></linearGradient><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a7f3d0"/><stop offset="1" stop-color="#34d399"/></linearGradient><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fda4af"/><stop offset="1" stop-color="#e11d48"/></linearGradient><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><g stroke="#0a1230" stroke-width="8" stroke-linejoin="round"><path d="M512 268 L784 404 L512 540 L240 404 Z" fill="url(#tg)"/><path d="M240 404 L512 540 L512 812 L240 676 Z" fill="url(#lg)"/><path d="M784 404 L512 540 L512 812 L784 676 Z" fill="url(#rg)"/></g></svg>
+  </div>
+  <h1>一张桌子,<br>人和 AI 一起用。</h1>
+  <p class="sub">Worktop 是一个本地 AI 工作台:左边是<b>对话</b>、<b>文件</b>、<b>网站</b>,中间是标签页,侧栏挂着你自己的<b>组件</b>。不用在三个应用之间来回切——对话在左半屏流着,AI 在右半屏替你操作网页,全程看得见。</p>
+  <div class="cta-row">
+    <a class="btn btn-primary" href="#download">下载 · macOS / Windows</a>
+    <a class="btn btn-ghost" href="https://github.com/yanglongyun/Worktop">GitHub ↗</a>
+  </div>
+  <div class="meta" id="hero-meta">macOS (Apple Silicon) · Windows (x64) · 免费 · MIT 开源 · 接你自己的模型</div>
+</header>
+
+<div class="wrap mock-outer">
+  <div class="mock">
+    <div class="mock-titlebar">
+      <span class="dot" style="background:#ff5f57"></span>
+      <span class="dot" style="background:#febc2e"></span>
+      <span class="dot" style="background:#28c840"></span>
+    </div>
+    <div class="mock-body">
+      <div class="mock-side">
+        <div class="side-label">会话</div>
+        <div class="side-item on"><span class="pulse"></span>整理季度报表</div>
+        <div class="side-item"><span class="greendot"></span>做一个喝水打卡组件</div>
+        <div class="side-item" style="padding-left:23px">调研竞品定价</div>
+        <div class="side-label" style="margin-top:12px">小组件</div>
+        <div class="side-item">✅ 待办 · 未完 3</div>
+        <div class="side-item">⛅ 天气 · 24° 多云</div>
+        <div class="side-item">📌 便签</div>
+      </div>
+      <div class="mock-main">
+        <div class="mock-col">
+          <div class="tabbar">
+            <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cb6b16" stroke-width="2.4"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M12 7V4M8 12h.01M16 12h.01"/></svg>整理季度报表</div>
+            <div class="tab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0f7b6c" stroke-width="2.4"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>终端</div>
+          </div>
+          <div class="mock-content">
+            <div class="msg user"><div>把 ~/文档/销售 里的三张表汇总一下,再去后台核对九月的数</div></div>
+            <div class="msg"><div class="who">Worktop</div><div>好的,先合并三张表,再打开后台核对。</div></div>
+            <div class="toolline"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><span>已合并 3 张表,共 412 行 → 汇总.xlsx</span></div>
+            <div class="toolline"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg><span class="sheen">正在后台核对九月订单…</span></div>
+          </div>
+        </div>
+        <div class="mock-col">
+          <div class="tabbar">
+            <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2383e2" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg>订单后台</div>
+          </div>
+          <div class="mock-content" style="padding:12px">
+            <div class="browser-chrome">
+              <div class="url-bar">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <span class="url-pill">admin.example.com/orders?month=9</span>
+              </div>
+              <div class="page-fake">
+                <div class="sk w40"></div>
+                <div class="sk w85"></div>
+                <div class="sk w70"></div>
+                <div class="sk w55"></div>
+                <div class="sk w85"></div>
+                <div class="fake-btn"><svg class="ai-cursor" width="18" height="18" viewBox="0 0 24 24"><path d="M5 3l14 8-6.5 1.5L9 19z" fill="#fff" stroke="#37352f" stroke-width="1.6"/></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-faint)">左边对话继续流,右边看着 AI 操作 —— AI 打开的网页,默认落在分屏的另一侧。</p>
+</div>
+
+<section id="panels" class="wrap">
+  <div class="kicker">一处集齐</div>
+  <h2>过去要开三个应用的事,<br>现在是三个标签页。</h2>
+  <p class="lede">聊天工具、文件管理器、浏览器——每换一件事就换一个窗口,上下文全在你脑子里扛着。Worktop 把它们放进同一张标签栏,还有分屏。</p>
+  <div class="grid3">
+    <div class="card">
+      <div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2383e2" stroke-width="2"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg></div>
+      <h3>对话</h3>
+      <p>与你的 AI 助手交流,按任务需要跑命令、读写本地文件、操作网页。思考与正文逐字流式,切走了它在后台继续跑,回来绿点提醒你看结果。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2383e2" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg></div>
+      <h3>文件</h3>
+      <p>把常用文件夹挂进来:图片、PDF 直接预览,Markdown 渲染源码随手切,代码高亮,还有双栏 Diff。产出的是你能点开、能用的真实文件,不是对话里的代码块。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2383e2" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20a15.3 15.3 0 0 1 0-20"/></svg></div>
+      <h3>网站</h3>
+      <p>内置真浏览器,带你的登录态。收藏可以建文件夹无限嵌套,密码用 AES-256-GCM 加密、密钥存进系统密钥库(macOS 钥匙串 / Windows DPAPI);macOS 上还能从 Chrome 一键导入书签和登录态。</p>
+    </div>
+  </div>
+  <div class="grid3" style="margin-top:16px">
+    <div class="card">
+      <div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2383e2" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+      <h3>终端与 Git</h3>
+      <p>真 PTY 交互式终端,想在哪个文件夹开就在哪开;Git 面板有暂存、提交、分支、历史,每个文件的 Diff 一点开就是一个标签。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2383e2" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+      <h3>组件与应用</h3>
+      <p>侧栏挂着你自己的小工具:待办、天气、股票、汇率……不够用?让 AI 现造一个。整页宽度的大家伙则是应用——创意画布、笔记、思维导图,出厂就带三个。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2383e2" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/></svg></div>
+      <h3>标签页与分屏</h3>
+      <p>一切都是标签:对话、文件、网页、终端、任务。拖中缝分屏,比例记得住;新标签插在来源旁边,照 Chrome 的规矩,不会跑到十个标签之外。</p>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<section id="browser" class="wrap">
+  <div class="kicker">内置浏览器</div>
+  <h2>AI 不是在"抓网页",<br>是坐在你登录好的浏览器里操作。</h2>
+  <div class="split-feature">
+    <div class="txt">
+      <p>大多数工具让 AI 用无头浏览器访问一个陌生的网页——没有你的账号,没有你的状态,处处碰壁。Worktop 的浏览器是真的:你的登录态、你的 Cookie,AI 用的就是这一个。</p>
+      <p>操作走 Chrome DevTools Protocol,派发的事件和你亲手点的没有区别——文件选择、拖放、各种框架的手势判定,全都认。定位不靠猜 CSS 选择器,而是读无障碍树,一行一个可交互元素。</p>
+      <ul class="checks">
+        <li>AI 打开的网页默认落在分屏另一侧,光标可视化,它点哪你看得见</li>
+        <li>每一次工具调用都强制附一句人话摘要,过程不是黑箱</li>
+        <li>下载直落系统下载文件夹,重名不覆盖,自动加 (1)</li>
+      </ul>
+    </div>
+    <div>
+      <div class="codeblock"><span class="c">// AI 眼中的页面:无障碍树,不是 HTML 汤</span>
+[n3-4]  textbox  <span class="s">"用户名"</span>
+[n3-7]  textbox  <span class="s">"密码"</span>
+[n3-12] button   <span class="s">"登录"</span>
+[n3-15] link     <span class="s">"忘记密码?"</span>
+
+<span class="c">// 事件经 CDP 派发 —— isTrusted: true</span>
+<span class="k">click</span> ref=<span class="s">"n3-12"</span>  <span class="c">→ 和用户自己动手没区别</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<section id="widgets" class="wrap">
+  <div class="kicker">零构建组件</div>
+  <h2>缺个工具?<br>说一句,AI 给你造一个。</h2>
+  <div class="split-feature">
+    <div>
+      <div class="codeblock"><span class="c">~/.worktop/widgets/water/</span>
+├── widget.json   <span class="c">← 名字、图标、要什么权限</span>
+├── index.html    <span class="c">← 入口,有它就算装上了</span>
+├── main.js       <span class="c">← 原生 ES module,零构建</span>
+└── data.db       <span class="c">← 宿主自动给的 SQLite</span>
+
+<span class="c">// 存数据?一行 fetch 就是全部 SDK:</span>
+<span class="k">await</span> fetch(<span class="s">"/widgets/sql"</span>, { ... })</div>
+    </div>
+    <div class="txt">
+      <p>在对话里说"做个喝水打卡的组件",AI 写出一个目录——刷新,它就挂在侧栏上了。没有脚手架、没有 npm install、没有构建这一步。</p>
+      <p>每个组件跑在自己的独立 origin 上,CSP 直接断网:组件的 JS 连不上任何外部地址,想访问外网只能走宿主代理,且域名要在 manifest 里明文声明。模型的 API Key 由宿主在服务端注入,永远不会出现在页面里。<b style="color:var(--text)">这是"AI 写的组件可以放心跑"的地基。</b></p>
+      <ul class="checks">
+        <li>出厂 11 个组件:待办、便签、日历、天气、股市、汇率、翻译、RSS……全是同一范式的活样本</li>
+        <li>主题变量自动注入,组件天然跟随明暗</li>
+        <li>卸载 = 删目录,还给你留 30 天后悔期</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<section id="local" class="wrap">
+  <div class="kicker">本地优先</div>
+  <h2>文件系统即真相。</h2>
+  <p class="lede">你的资产在文件系统里,SQLite 只存过程。删掉 Worktop,你的东西一件不少。</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>全部在你的电脑上</h3>
+      <p>对话、文件、历史、组件数据,都在本机。遥测只收 4 个匿名字段(事件名、版本、平台、安装 id),不碰任何内容数据,设置里一键关掉,开发版压根不发。</p>
+    </div>
+    <div class="card">
+      <h3>模型是你自己的</h3>
+      <p>填上 API 地址、Key 和模型名就能用——协议是 OpenAI Responses,接任何兼容接口或网关。换供应商不换习惯。</p>
+    </div>
+    <div class="card">
+      <h3>密码认真存</h3>
+      <p>网站密码 AES-256-GCM 加密落库,密钥放系统密钥库(macOS 钥匙串 / Windows DPAPI)——和 Chrome 同一个思路。密钥拿不到就整个功能不可用,绝不明文兜底。</p>
+    </div>
+    <div class="card">
+      <h3>克制的工具集</h3>
+      <p>AI 手里只有 5 个工具:bash、read、edit、write、browser。一个不多——能用通用能力表达的,就不单开一个工具。</p>
+    </div>
+  </div>
+</section>
+
+<section id="honest" class="honest">
+  <div class="wrap">
+    <div class="kicker">几句实话</div>
+    <h2>我们不假装有沙箱。</h2>
+    <div class="quote">
+      <p><b>bash 是全功能的,没有沙箱。</b>护栏是一套你自己写的规则,比如"删除或移动我的文件之前,先问我"。规则的唯一出口是写进系统提示词:没有硬闸,赌注明明白白押在模型遵守规则上,而不是给你一个"拦得住"的错觉。</p>
+      <p style="margin-top:14px">需要确认时,提醒卡就长在对话流里,调用停在哪儿,卡就出现在哪儿。只有"允许 / 不允许",<b>没有"以后都允许"</b>。它是助手的判断,不是保证——我们不许界面让你以为危险操作一定会被拦下。</p>
+      <p style="margin-top:14px">Worktop 是实验性的,不面向生产。界面、提示词、代码注释,全是中文。</p>
+    </div>
+  </div>
+</section>
+
+<section id="download" class="final wrap">
+  <svg width="56" height="56" viewBox="0 0 1024 1024" style="margin-bottom:24px"><rect x="96" y="96" width="832" height="832" rx="188" fill="#20366e"/><g stroke="#0a1230" stroke-width="8" stroke-linejoin="round"><path d="M512 300 L768 428 L512 556 L256 428 Z" fill="#34d399"/><path d="M256 428 L512 556 L512 812 L256 684 Z" fill="#e11d48"/><path d="M768 428 L512 556 L512 812 L768 684 Z" fill="#f59e0b"/></g></svg>
+  <h2>把三个应用,合成一张桌子。</h2>
+  <p class="lede" style="margin-left:auto;margin-right:auto;text-align:center">macOS 版已签名公证,下载即用;Windows 版暂未签名,首次运行点「更多信息 → 仍要运行」。接上你自己的模型,五分钟后它就在替你干活了。</p>
+  <div class="cta-row" style="margin-top:30px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <a class="btn btn-primary" id="dl-mac" href="https://github.com/yanglongyun/Worktop/releases">下载 macOS 版 (Apple Silicon)</a>
+    <a class="btn btn-primary" id="dl-win" href="https://github.com/yanglongyun/Worktop/releases">下载 Windows 版 (x64)</a>
+    <a class="btn btn-ghost" href="https://github.com/yanglongyun/Worktop">在 GitHub 上看源码 ↗</a>
+  </div>
+  <div class="meta" id="dl-meta" style="margin-top:14px;font-size:13px;color:var(--text-faint)">MIT License · 自动更新</div>
+</section>
+
+<footer>
+  <div class="wrap foot-inner">
+    <span style="display:flex;align-items:center;gap:8px"><svg width="15" height="15" viewBox="0 0 1024 1024"><rect x="96" y="96" width="832" height="832" rx="188" fill="#20366e"/><g stroke="#0a1230" stroke-width="8" stroke-linejoin="round"><path d="M512 300 L768 428 L512 556 L256 428 Z" fill="#34d399"/><path d="M256 428 L512 556 L512 812 L256 684 Z" fill="#e11d48"/><path d="M768 428 L512 556 L512 812 L768 684 Z" fill="#f59e0b"/></g></svg>Worktop · 本地 AI 工作台</span>
+    <div class="sp">
+      <a href="https://github.com/yanglongyun/Worktop">GitHub</a>
+      <a href="https://iimos.ai">iimos</a>
+      <a href="https://iimos.ai/privacy">隐私政策</a>
+      <a href="https://iimos.ai/terms">服务条款</a>
+    </div>
+  </div>
+</footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

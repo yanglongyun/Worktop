@@ -1,0 +1,22 @@
+{
+  "name": "worktop-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --config ui/vite.config.ts",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "typecheck": "tsc -p ui/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest",
+    "wrangler": "4.118.0"
+  }
+}

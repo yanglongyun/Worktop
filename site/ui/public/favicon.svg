@@ -1,0 +1,26 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Worktop 图标:三色砖 Tri-Block —— 出自 .dev/1.0.0/候选-kimi.html 的 11 号,去掉了右上那粒星。
+       一块等距的砖:顶面绿、左面红、右面黄,深靛蓝底板。
+       画布 1024,底板 96..928(沿用旧图标的边距约定);砖体按原稿 512 坐标系(底板 16..496)整体缩放平移。 -->
+  <defs>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20366e"/><stop offset="1" stop-color="#0a1230"/></linearGradient>
+    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a7f3d0"/><stop offset="1" stop-color="#34d399"/></linearGradient>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fda4af"/><stop offset="1" stop-color="#e11d48"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>
+    <linearGradient id="hl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".14"/><stop offset=".3" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset=".75" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity=".16"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="96" y="96" width="832" height="832" rx="188" fill="url(#b)"/>
+
+  <!-- 原稿底板 16..496(480 宽)→ 现底板 96..928(832 宽):scale 832/480,translate 96 − 16×scale -->
+  <g transform="translate(68.267 68.267) scale(1.73333)">
+    <path d="M134 186L256 258L256 402L134 330Z" fill="url(#l)" stroke="#0a1230" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M256 258L378 186L378 330L256 402Z" fill="url(#r)" stroke="#0a1230" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M256 116L378 186L256 258L134 186Z" fill="url(#t)" stroke="#0a1230" stroke-width="8" stroke-linejoin="round"/>
+  </g>
+
+  <rect x="96" y="96" width="832" height="832" rx="188" fill="url(#hl)"/>
+</svg>
